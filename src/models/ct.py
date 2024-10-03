@@ -33,7 +33,7 @@ class CT(EDCT):
 
     def __init__(self, args: DictConfig,
                  dataset_collection: Union[RealDatasetCollection, SyntheticDatasetCollection] = None,
-                 autoregressive: bool = None,
+                 autoregressive: bool = True,
                  has_vitals: bool = None,
                  projection_horizon: int = None,
                  bce_weights: np.array = None, **kwargs):
@@ -189,19 +189,30 @@ class CT(EDCT):
 
         predicted_outputs = np.zeros((len(dataset), self.hparams.dataset.projection_horizon, self.dim_outcome))
 
-        for t in range(self.hparams.dataset.projection_horizon + 1):
-            logger.info(f't = {t + 1}')
+        for t in range(self.hparams.dataset.projection_horizon):
+            #logger.info(f't = {t + 1}')
             outputs_scaled = self.get_predictions(dataset)
 
             for i in range(len(dataset)):
                 split = int(dataset.data['future_past_split'][i])
                 if t < self.hparams.dataset.projection_horizon:
                     dataset.data['prev_outputs'][i, split + t, :] = outputs_scaled[i, split - 1 + t, :]
-                if t > 0:
-                    predicted_outputs[i, t - 1, :] = outputs_scaled[i, split - 1 + t, :]
+                    predicted_outputs[i, t, :] = outputs_scaled[i, split - 1 + t, :]
 
         return predicted_outputs
-
+    def forecast(self,batch):
+        batch["current_treatments"] = batch["current_treatments"][:,1:]
+        batch["prev_outputs"] = batch["prev_outputs"]
+        batch["vitals"] = batch["vitals"][:,:-1]
+        batch["active_entries"] = batch["active_entries"][:, 1:, :]
+        output = torch.zeros_like(batch["outputs"])
+        for t in range(self.hparams.dataset.projection_horizon):
+            output_reg = self(batch)
+            for i in range(batch["vitals"].shape[0]):
+                tau = int(batch['future_past_split'][i])
+                batch['prev_outputs'][i, tau + t] = output_reg[i, tau - 1 + t]
+                output[i,tau+t] = output_reg[i, tau - 1 + t]
+        return output
     def visualize(self, dataset: Dataset, index=0, artifacts_path=None):
         """
         Vizualizes attention scores

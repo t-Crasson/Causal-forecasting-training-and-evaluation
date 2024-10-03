@@ -19,4 +19,4 @@ model:
       max_relative_position: 30
 
 exp:
-  max_epochs: 300
+  max_epochs: 100
