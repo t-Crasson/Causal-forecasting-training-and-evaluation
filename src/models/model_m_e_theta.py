@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from itertools import chain
 from torch.optim.lr_scheduler import LinearLR
 
-class m_e_theta_daily(pl.LightningModule):
+class m_e_theta_daily(Transformer_core):
     def __init__(self, h=60,
                  proj_len = 5,
                  tgt_size: int = 3,
@@ -117,13 +117,15 @@ class m_e_theta_daily(pl.LightningModule):
                     e_0 = 1 - torch.cumsum(e_0,dim = -1)
                     e_0 = e_0 - self.eps
                     e_0 = F.relu(e_0)
+
+                    # in best version: above is commented and replaced by e_0 = F.sigmoid(e_0)
                 else:
                     e_0 = self.norm_function_e_0(e_0)
                 theta = self.theta(self.theta_att.get_Z(window_batch,tau))
         return m_0, e_0, theta
     
 
-    def forecast(self, batch,indexes):
+    def forecast(self, batch):
         """Forecast function to return the debiais estimation outcome
 
         Args:
@@ -167,6 +169,7 @@ class m_e_theta_daily(pl.LightningModule):
         T = treatment[:,:,0].long()
         T = F.one_hot(T, 2**self.treatment_max).float()
         if self.is_cdf:
+            # in the other version: this was replaced by T=torch.cumsum(T,dim = -1)
             T = 1 - torch.cumsum(T,dim = -1)
         
         shift = torch.matmul((T-e_0).unsqueeze(-2), theta.unsqueeze(-1)).squeeze(-1)
@@ -211,6 +214,9 @@ class m_e_theta_daily(pl.LightningModule):
             T_reduced = F.one_hot(T_reduced, 2**self.treatment_max).float()
             #T_reduced = torch.cumsum(T_reduced,dim = -1)
             T_reduced = 1 - torch.cumsum(T_reduced,dim = -1)
+
+            # in best version: next 2 lines were replace by single line below
+            # loss = self.loss_classification(e_0.flatten(), T_reduced.flatten(), reduction = "none")*active_entries.flatten().sum()/active_entries.sum()
             loss = torch.sum(self.loss_classification(e_0, T_reduced, reduction = "none"),dim=-1)
             loss = (loss.flatten()*active_entries.flatten()).sum()/active_entries.sum()
             return loss

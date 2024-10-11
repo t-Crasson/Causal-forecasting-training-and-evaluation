@@ -203,3 +203,20 @@ class RealDatasetCollection:
                 logger.info(f'Exploding test_f {mc_samples} times')
                 self.test_f_mc.append(self.test_f)
                 self.test_f_mc[m].data = deepcopy(self.test_f.data)
+    
+    def process_data_multi_val(self):
+        """
+        Used by CT
+        """
+        self.val_f_multi = deepcopy(self.val_f)
+
+        # Multiplying test trajectories
+        self.val_f_multi.explode_trajectories(self.projection_horizon)
+
+        self.val_f_multi.process_sequential_test(self.projection_horizon)
+        self.val_f_multi.process_sequential_multi(self.projection_horizon)
+
+    
+    
+
+        

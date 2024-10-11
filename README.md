@@ -1,13 +1,9 @@
-CausalTransformer
+Training and evaluating causal forecasting models for time-series
 ==============================
-[![Conference](https://img.shields.io/badge/ICML22-Paper-blue])](https://proceedings.mlr.press/v162/melnychuk22a/melnychuk22a.pdf)
-[![arXiv](https://img.shields.io/badge/arXiv-2204.07258-b31b1b.svg)](https://arxiv.org/abs/2204.07258)
-[![Python application](https://github.com/Valentyn1997/CausalTransformer/actions/workflows/python-app.yml/badge.svg)](https://github.com/Valentyn1997/CausalTransformer/actions/workflows/python-app.yml)
+<!-- [![arXiv](https://img.shields.io/badge/arXiv-2204.07258-b31b1b.svg)](https://arxiv.org/abs/2204.07258)
+[![Python application](https://github.com/Valentyn1997/CausalTransformer/actions/workflows/python-app.yml/badge.svg)](https://github.com/Valentyn1997/CausalTransformer/actions/workflows/python-app.yml) -->
 
-Causal Transformer for estimating counterfactual outcomes over time.
-
-<img width="1518" alt="Screenshot 2022-06-03 at 16 41 44" src="https://user-images.githubusercontent.com/23198776/171877145-c7cba15e-9787-4594-8f1f-cbb8b337b74a.png">
-
+This repository is a fork from the [CausalTransformer](https://github.com/Valentyn1997/CausalTransformer) repository. The forked repository normalize the data processing pipeline and provide the CausalTransofrmer model architecture.
 
 The project is built with following Python libraries:
 1. [Pytorch-Lightning](https://pytorch-lightning.readthedocs.io/en/latest/) - deep learning models

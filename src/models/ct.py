@@ -201,17 +201,19 @@ class CT(EDCT):
 
         return predicted_outputs
     def forecast(self,batch):
-        batch["current_treatments"] = batch["current_treatments"][:,1:]
-        batch["prev_outputs"] = batch["prev_outputs"]
-        batch["vitals"] = batch["vitals"][:,:-1]
-        batch["active_entries"] = batch["active_entries"][:, 1:, :]
-        output = torch.zeros_like(batch["outputs"])
-        for t in range(self.hparams.dataset.projection_horizon):
-            output_reg = self(batch)
-            for i in range(batch["vitals"].shape[0]):
-                tau = int(batch['future_past_split'][i])
-                batch['prev_outputs'][i, tau + t] = output_reg[i, tau - 1 + t]
-                output[i,tau+t] = output_reg[i, tau - 1 + t]
+        with torch.no_grad():
+            batch["current_treatments"] = batch["current_treatments"][:,1:]
+            batch["prev_outputs"] = batch["prev_outputs"][:,:-1]
+            batch["prev_treatments"] = batch["prev_treatments"][:,:-1]
+            batch["vitals"] = batch["vitals"][:,:-1]
+            batch["active_entries"] = batch["active_entries"][:, 1:, :]
+            output = torch.zeros_like(batch["outputs"])
+            for t in range(self.hparams.dataset.projection_horizon):
+                _, output_reg, _ = self(batch)
+                for i in range(batch["vitals"].shape[0]):
+                    tau = int(batch['future_past_split'][i])
+                    batch['prev_outputs'][i, tau + t] = output_reg[i, tau - 1 + t]
+                    output[i,tau+t] = output_reg[i, tau - 1 + t]
         return output
     def visualize(self, dataset: Dataset, index=0, artifacts_path=None):
         """
