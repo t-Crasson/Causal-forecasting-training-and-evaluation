@@ -33,7 +33,7 @@ class AbstractTreatmentModule(nn.Module, ABC):
             if self.training_theta:
                 with torch.no_grad():
                     e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
-                theta = self.head(self.backbone.get_z(windows_batch, tau))
+                theta = self.theta_head(self.theta_backbone.get_z(windows_batch, tau))
             else:
                 e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
                 with torch.no_grad():
@@ -108,6 +108,7 @@ class CumulativeTreatmentModule(AbstractTreatmentModule):
         super().__init__(theta_backbone, e0_backbone, treatment_max_value, hidden_size, last_nn)
         self.classification_loss = nn.functional.binary_cross_entropy
         self.eps = 1e-7
+        self.e0_norm_function = nn.Softmax(dim=2)
 
     def encode_treatments(self, y_shape: tuple[int, ...], treatments: Tensor, e0_compare: bool = True):
         encoded_treatments = torch.zeros(y_shape, device=treatments.device)
@@ -121,7 +122,7 @@ class CumulativeTreatmentModule(AbstractTreatmentModule):
         return encoded_treatments
 
     def encode_e0_values(self, e0: Tensor) -> Tensor:
-        e0 = self.norm_function_e_0(e0)
+        e0 = self.e0_norm_function(e0)
         e0 = 1 - torch.cumsum(e0, dim=-1)
         e0 = e0 - self.eps
         e0 = F.relu(e0)

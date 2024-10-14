@@ -21,7 +21,7 @@ from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollectionCausal,MI
 MODEL_PREFIX_PATH = "/home/thomas/fork_causal_transformer/Causal-forecasting-training-and-evaluation"
 MODEL_PREFIX_FOLDER = "TFT_repro_clean"
 IS_CDF = False
-MODEL_PREFIX_NAME = f"{'cdf' if IS_CDF else 'density'}_clean"
+MODEL_PREFIX_NAME = f"{'cdf' if IS_CDF else 'density'}_pipeline_clean"
 
 if __name__=="__main__":
     with open('/home/thomas/mimic/physionet.org/files/mimiciii/CausalTransformer/config/dataset/mimic3_real.yaml', 'r') as file:
@@ -64,8 +64,8 @@ if __name__=="__main__":
             static_embedding_sizes=embedding_size_stat,
             temporal_embedding_sizes=embedding_size_future,
             trend_size=1,
-            n_att_layers=2,
-            n_static_layers=2,
+            n_att_layers=1,
+            n_static_layers=1,
             conv_blocks=2,
             conv_padding_size=64,
             kernel_size=5,
@@ -93,7 +93,7 @@ if __name__=="__main__":
         trainer = pl.Trainer(accelerator ="gpu",
                             #strategy='ddp_find_unused_parameters_true',
                             max_epochs = 1,
-                            devices = -1,
+                            devices = 1,
                             callbacks = checkpoint_callback,
                             logger = logger,
                             deterministic=not IS_CDF
@@ -110,17 +110,9 @@ if __name__=="__main__":
         del model
         
         path = f"{MODEL_PREFIX_PATH}/{MODEL_PREFIX_FOLDER}/m_e_{MODEL_PREFIX_NAME}_{i}/checkpoints"
-        # path = f"{MODEL_PREFIX_PATH}/{MODEL_PREFIX_FOLDER}/m_e_cdf_ref_{i}/checkpoints"
         file = os.listdir(path)[0]
         path = os.path.join(path,file)
-        model = CausalTFT(
-            treatment_module_class=CumulativeTreatmentModule if IS_CDF else OneHotTreatmentModule,
-            projection_length=5,
-            last_nn=[hidden_size],
-            horizon=horizon,
-            static_features_size=44,
-            temporal_features_size=28,
-        ).load_from_checkpoint(path).to("cuda")
+        model = CausalTFT.load_from_checkpoint(path).to("cuda")
 
         model.weight_decay = 1e-2
         model.learning_rate = 1e-4
@@ -148,7 +140,7 @@ if __name__=="__main__":
         trainer = pl.Trainer(accelerator ="gpu",
                             #strategy='ddp_find_unused_parameters_true',
                             max_epochs = 1,
-                            devices = -1,
+                            devices = 1,
                             callbacks = checkpoint_callback,
                             logger = logger,
                             deterministic=not IS_CDF

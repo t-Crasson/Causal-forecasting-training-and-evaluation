@@ -168,7 +168,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
     def format_batch_window(self, batch: dict[str, Tensor]) -> tuple[dict[str, Tensor], Tensor, Tensor, Tensor, Tensor]:
         windows_batch, taus, y, active_entries, treatments = super().format_batch_window(batch)
         temporal = windows_batch["multivariate_exog"]
-        for k in range(self.treatment_module.treatment_max):
+        for k in range(self.treatment_module.treatment_max_value):
             for i, tau in enumerate(taus):
                 temporal[i, tau:, -1 - k] = -1
         windows_batch["multivariate_exog"] = temporal
@@ -213,7 +213,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         return loss
 
     def training_step(self, batch: dict[str, Tensor], batch_idx: int) -> Tensor:
-        windows_batch, taus, y, active_entries, treatments = super().format_batch_window(batch)
+        windows_batch, taus, y, active_entries, treatments = self.format_batch_window(batch)
         m0, e0, theta = self.forward(windows_batch, taus)
         loss_reg, loss_e0, loss_orthogonal = self.loss(y, treatments, m0, e0, theta, active_entries)
 
@@ -230,7 +230,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         return loss
 
     def validation_step(self, batch: dict[str, Tensor], batch_idx: int) -> None:
-        windows_batch, taus, y, active_entries, treatments = super().format_batch_window(batch)
+        windows_batch, taus, y, active_entries, treatments = self.format_batch_window(batch)
         m0, e0, theta = self.forward(windows_batch, taus)
         loss_reg, loss_e0, loss_orthogonal = self.loss(y, treatments, m0, e0, theta, active_entries)
 

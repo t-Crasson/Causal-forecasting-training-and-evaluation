@@ -91,16 +91,17 @@ if __name__=="__main__":
         dataset_collection.process_data_multi_train()
         
         logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"m_e_{MODEL_PREFIX_NAME}_{i}")
-        trainer = pl.Trainer(accelerator ="gpu",
-                            #strategy='ddp_find_unused_parameters_true',
-                            max_epochs = 1,
-                            devices = -1,
-                            callbacks = checkpoint_callback,
-                            logger = logger,
-                            deterministic=not IS_CDF
-                            )    
+        trainer = pl.Trainer(
+            accelerator ="cpu",
+            #strategy='ddp_find_unused_parameters_true',
+            max_epochs = 1,
+            devices = 1,
+            callbacks = checkpoint_callback,
+            logger = logger,
+            deterministic=not IS_CDF
+        )    
 
-        train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=True,batch_size=batch_size)
+        train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=False,batch_size=batch_size)
         val_loader_s1 = DataLoader(dataset_collection.val_f_multi_s1, shuffle=False,batch_size=512)
         trainer.fit(model,train_loader_s1,val_loader_s1)
 
@@ -140,10 +141,10 @@ if __name__=="__main__":
                                                                         monitor = "val_loss",
                                                                         mode="min")      
         logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"theta_{MODEL_PREFIX_NAME}_{i}")
-        trainer = pl.Trainer(accelerator ="gpu",
+        trainer = pl.Trainer(accelerator ="cpu",
                             #strategy='ddp_find_unused_parameters_true',
                             max_epochs = 1,
-                            devices = -1,
+                            devices = 1,
                             callbacks = checkpoint_callback,
                             logger = logger,
                             deterministic=not IS_CDF
