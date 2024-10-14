@@ -5,6 +5,7 @@ from encodec.modules.conv import SConv1d
 from src.models.causal_tft.attention import AttentionBlock
 from src.models.causal_tft.utils import VariableSelectionNetwork, Resblock
 
+
 class CausalCNNEncoder(nn.Module):
     def __init__(
         self, 
@@ -67,7 +68,7 @@ class CausalCNNEncoder(nn.Module):
                     n_heads=n_heads, 
                     in_channels=in_ch, 
                     out_channels=in_ch+hidden_size, 
-                    hidden_size=hidden_size, 
+                    origin_size=hidden_size,
                     dropout=dropout,
                     attn_dropout=attn_dropout,
                     n_att_layers=n_att_layers,
@@ -79,37 +80,39 @@ class CausalCNNEncoder(nn.Module):
             padding_length = padding_length//2
         self.li_down = nn.ModuleList(self.li_down)
 
-        
     def forward(
         self, 
         temporal_features: Tensor, 
         static_features: Tensor,
-        tau: int | None = None
-    ) -> Tensor:
+        tau: Tensor | None = None
+    ) -> list[Tensor]:
         """_summary_
 
         Args:
-            temporal_features (Tensor): Temporal data, shape (batch_size, temporal lenght,n_features_temporal,hidden_size)
-            cs (Tensor): Static data, added to the sequence after the convolution, shape (batch_size, hidden_size)
-            tau (int, optional): Time step up until we know the time series. Defaults to None.
+            temporal_features (Tensor): Temporal data, shape (batch_size, temporal length,
+            n_features_temporal, hidden_size)
+            static_features (Tensor): Static data, added to the sequence after the convolution, shape
+            (batch_size, hidden_size)
+            tau (Tensor, optional): Time step up until we know the time series. Defaults to None. Argument
+            should be one dimensional int
 
         Returns:
             _type_: _description_
         """
-        #We apply a first features selection to the features known for the whole time series
+        # We apply a first features selection to the features known for the whole time series
         x = self.temporal_vsn(temporal_features[:,:,:-self.serie_size])
-        #We then add the effect of the features known until tau
+        # We then add the effect of the features known until tau
         if tau is not None:
             past_effect = self.past_vsn(temporal_features)
             for i in range(tau.shape[0]):
-                x[i,:tau[i]] = x[i,:tau[i]] + past_effect[i,:tau[i]]
+                x[i, :tau[i]] = x[i, :tau[i]] + past_effect[i, :tau[i]]
 
-        #We apply the convolutions
-        x = self.padding(x.transpose(1,2)).transpose(1,2)
+        # We apply the convolutions
+        x = self.padding(x.transpose(1, 2)).transpose(1, 2)
         li_intermediate = [x]
         for i in range(len(self.li_down)):
             x = self.li_down[i](x,static_features)
-            if i!=len(self.li_down)-1:
+            if i != len(self.li_down)-1:
                 li_intermediate.append(x)
         y = x
         li_intermediate.append(y)

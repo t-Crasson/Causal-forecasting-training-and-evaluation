@@ -1,6 +1,5 @@
-from abc import ABC
-import pytorch_lightning as pl
 from torch import Tensor
+from torch import nn
 import torch
 
 from src.models.causal_tft.static_covariate_encoder import StaticCovariateEncoder
@@ -8,7 +7,8 @@ from src.models.causal_tft.embeding import TFTEmbedding
 from src.models.causal_tft.cnn_encoder import CausalCNNEncoder
 from src.models.causal_tft.cnn_decoder import CNNDecoder
 
-class TFTCore(pl.LightningModule, ABC):
+
+class TFTBackbone(nn.Module):
     def __init__(
         self,
         horizon: int,
@@ -79,7 +79,6 @@ class TFTCore(pl.LightningModule, ABC):
             n_layers=n_static_layers
         )
 
-
         self.temporal_encoder = CausalCNNEncoder(
             hidden_size=self.hidden_size,
             temporal_features_size=(
@@ -105,12 +104,11 @@ class TFTCore(pl.LightningModule, ABC):
             dropout=dropout,
             n_att_layers=n_att_layers,
             padding_length=conv_padding_size,
-            n_block=conv_blocks,
+            n_blocks=conv_blocks,
             kernel_size=kernel_size
         )
-
     
-    def get_Z(self, window_batch: dict[str, Tensor], tau: int | None = None):
+    def get_z(self, windows_batch: dict[str, Tensor], tau: Tensor | None = None):
         """Function returning the latent variable of the batch.
 
         Args:
@@ -119,11 +117,11 @@ class TFTCore(pl.LightningModule, ABC):
         Returns:
             tensor: latent variable, output of the TFT
         """
-        y_insample =  window_batch["insample_y"] # trend timeseries
-        multivariate =  window_batch["multivariate_exog"] # futur time series
-        stat_exog = window_batch["stat_exog"]  # static features
+        y_insample = windows_batch["insample_y"] # trend timeseries
+        multivariate = windows_batch["multivariate_exog"] # futur time series
+        stat_exog = windows_batch["stat_exog"]  # static features
         if tau is None:
-            tau = torch.argmin(y_insample,dim=1)
+            tau = torch.argmin(y_insample, dim=1)
         
         # Inputs embeddings
         s_inp, k_inp, t_observed_tgt = self.embedding(
@@ -147,15 +145,15 @@ class TFTCore(pl.LightningModule, ABC):
         )
 
         # Self-Attention decoder
-        Z = self.temporal_fusion_decoder(
+        z = self.temporal_fusion_decoder(
             temporal_features=temporal_features,
-            static_features = static_features
+            static_features=static_features
         )
 
-        return Z
+        return z
 
-    def forward(self, windows_batch: dict[str, Tensor]):
-        raise NotImplementedError
+    def forward(self, windows_batch: dict[str, Tensor], tau: Tensor | None = None):
+        return self.get_z(windows_batch, tau)
     
     def predict(self, shaped_batch: tuple[Tensor, Tensor, Tensor]):
         li_insample_y, multivariate_exo, li_stat_exo = shaped_batch
@@ -165,12 +163,6 @@ class TFTCore(pl.LightningModule, ABC):
         windows["multivariate_exog"] = multivariate_exo
 
         return self.forward(windows)
-    
-    # # TODO: check if we can remove this
-    # def configure_optimizers(self):
-    #     # Required by torch lightning
-    #     self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-    #     self.scheduler = StepLR(self.optimizer, step_size=20, gamma=0.05)
-    #     return self.optimizer
+
 
 

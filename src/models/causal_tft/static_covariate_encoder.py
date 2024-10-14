@@ -32,37 +32,6 @@ class StaticCovariateEncoder(nn.Module):
         return context_static
 
 
-class VariableSelectionNetwork(nn.Module):
-    def __init__(
-        self, 
-        hidden_size: int, 
-        num_inputs: int,
-        dropout: float, 
-        n_layers: int = 1
-    ):
-        super().__init__()
-        seq = [
-            nn.Linear(num_inputs*hidden_size,4*hidden_size),
-            nn.GELU()
-        ]
-        for _ in range(n_layers):
-            seq.extend([
-                nn.Linear(4*hidden_size,4*hidden_size),
-                nn.Dropout(dropout),
-                nn.GELU()
-            ])
-        seq.append(nn.Linear(4*hidden_size,hidden_size))
-        self.seq = nn.Sequential(*seq)
-        self.lin_c = nn.Linear(hidden_size,hidden_size)
-
-    def forward(self,x,context = None):
-        x = x.flatten(start_dim = -2)
-        x = self.seq(x)
-        if context is not None:
-            x = torch.cat([self.lin_c(context).unsqueeze(1),x],dim=-2)
-        return x
-
-
 class GLU(nn.Module):
     def __init__(self, hidden_size: int, output_size: int):
         super().__init__()
@@ -72,6 +41,7 @@ class GLU(nn.Module):
         x = self.lin(x)
         x = F.glu(x)
         return x
+
 
 class MaybeLayerNorm(nn.Module):
     def __init__(self, output_size: int | None, hidden_size: int, eps: float):

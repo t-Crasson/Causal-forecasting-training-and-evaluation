@@ -1,9 +1,10 @@
-
+import copy
 from torch import Tensor
 import torch
 from torch import nn
 import torch.nn.functional as F
 from encodec.modules.conv import SConv1d
+
 
 class VariableSelectionNetwork(nn.Module):
     def __init__(
@@ -55,12 +56,12 @@ class Resblock(nn.Module):
 
 def create_sequential_layers(nn_final_m, hidden_size: int, target_size: int):
     nn_final = copy.deepcopy(nn_final_m)
-    nn_final.append(tgt_size)
+    nn_final.append(target_size)
     last_nn = nn.Sequential()
-    last_nn.append(nn.Linear(in_features = hidden_size, out_features = nn_final[0]))
+    last_nn.append(nn.Linear(in_features=hidden_size, out_features=nn_final[0]))
     for i in range(len(nn_final) - 1):
         last_nn.append(nn.ReLU())
-        last_nn.append(nn.Linear(in_features = nn_final[i], out_features = nn_final[i+1]))
-   
+        last_nn.append(nn.Linear(in_features=nn_final[i], out_features=nn_final[i+1]))
+
     return last_nn
 
