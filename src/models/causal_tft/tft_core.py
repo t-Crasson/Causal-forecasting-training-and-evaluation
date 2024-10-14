@@ -140,7 +140,7 @@ class TFTBackbone(nn.Module):
         # CNN
         temporal_features = self.temporal_encoder(
             temporal_features=temporal_features,
-            cs=static_features,
+            static_features=static_features,
             tau=tau
         )
 

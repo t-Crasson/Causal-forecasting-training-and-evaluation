@@ -8,7 +8,7 @@ from src.models.causal_tft.tft_core import TFTBackbone
 from src.models.causal_tft.utils import create_sequential_layers
 
 
-class TFTBaseline(pl.LightningModule, TFTBackbone):
+class TFTBaseline(TFTBackbone, pl.LightningModule):
     def __init__(
         self,
         projection_length: int,
@@ -106,7 +106,7 @@ class TFTBaseline(pl.LightningModule, TFTBackbone):
         taus = batch["future_past_split"].int()
         for i, tau in enumerate(taus):
             li_insample_y[i, tau:] = 0
-            active_entries[i, tau:tau + self.proj_len] = 1
+            active_entries[i, tau:tau + self.projection_length] = 1
             vitals[i, tau:] = 0
 
         temporal = torch.concat([vitals, position, treatments], dim=-1)

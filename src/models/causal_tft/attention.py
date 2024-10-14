@@ -3,17 +3,17 @@ from torch import nn, Tensor
 from torch.nn import functional as F
 
 class InterpretableMultiHeadAttention(nn.Module):
-    def __init__(self, n_head, hidden_size, example_length, attn_dropout, dropout):
+    def __init__(self, n_heads, hidden_size, example_length, attn_dropout, dropout):
         super().__init__()
-        self.n_head = n_head
-        assert hidden_size % n_head == 0
-        self.d_head = hidden_size // n_head
+        self.n_heads = n_heads
+        assert hidden_size % n_heads == 0
+        self.d_head = hidden_size // n_heads
         self.hidden_size = hidden_size
         self.qkv_linears = nn.Linear(
-            hidden_size, (2 * self.n_head +1) * self.d_head, bias=False
+            hidden_size, (2 * self.n_heads +1) * self.d_head, bias=False
         )
-        self.q = nn.Linear(hidden_size,self.n_head*self.d_head)
-        self.k = nn.Linear(hidden_size,self.n_head*self.d_head)
+        self.q = nn.Linear(hidden_size,self.n_heads*self.d_head)
+        self.k = nn.Linear(hidden_size,self.n_heads*self.d_head)
         self.v = nn.Linear(hidden_size,self.d_head)
         self.out_proj = nn.Linear(self.d_head, hidden_size, bias=False)
 
@@ -36,14 +36,14 @@ class InterpretableMultiHeadAttention(nn.Module):
     ) -> tuple[Tensor, Tensor]:
         # [Batch,Time,MultiHead,AttDim] := [N,T,M,AD]
         #Computation of the queries, keys and values
-        context = static_features if static_features else x
+        context = static_features if static_features is not None else x
         bs, t, _ = x.shape
         q = self.q(x)
         k = self.k(context)
         v = self.v(context)
 
-        q = q.view(bs, t, self.n_head, self.d_head)
-        k = k.view(bs, t, self.n_head, self.d_head)
+        q = q.view(bs, t, self.n_heads, self.d_head)
+        k = k.view(bs, t, self.n_heads, self.d_head)
         v = v.view(bs, t, self.d_head)
 
         # [N,T1,M,Ad] x [N,T2,M,Ad] -> [N,M,T1,T2]
@@ -70,7 +70,7 @@ class InterpretableMultiHeadAttention(nn.Module):
 class BasicAttentionBlock(nn.Module):
     def __init__(
         self,
-        n_head: int, 
+        n_heads: int, 
         hidden_size: int, 
         example_length: int, 
         attn_dropout: float, 
@@ -81,7 +81,7 @@ class BasicAttentionBlock(nn.Module):
         if static_size is None:
             static_size = hidden_size
         self.attention1 = InterpretableMultiHeadAttention(
-            n_head=n_head,
+            n_heads=n_heads,
             hidden_size=hidden_size,
             example_length=example_length,
             attn_dropout=attn_dropout,
@@ -89,7 +89,7 @@ class BasicAttentionBlock(nn.Module):
         )
         self.static_encoder = nn.Linear(static_size,hidden_size)
         self.attention2 = InterpretableMultiHeadAttention(
-            n_head=n_head,
+            n_heads=n_heads,
             hidden_size=hidden_size,
             example_length=example_length,
             attn_dropout=attn_dropout,

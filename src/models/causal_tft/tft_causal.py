@@ -17,6 +17,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
 
     def __init__(
         self,
+        treatment_module_class: type[T],
         projection_length: int,
         last_nn: list[int],
         horizon: int,
@@ -39,6 +40,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         treatment_max_value: int = 2,
         weight_decay: float = 1e-4,
     ):
+        self.weight_decay = weight_decay
         super().__init__(
             projection_length=projection_length,
             last_nn=last_nn,
@@ -62,12 +64,12 @@ class CausalTFT(TFTBaseline, Generic[T]):
         )
 
         self.loss_regression = nn.MSELoss()
-        self.weight_decay = weight_decay
+        
 
         self.m0_backbone = TFTBackbone(
             horizon=horizon,
             static_features_size=static_features_size,
-            temporal_features_size=temporal_features_size+1,
+            temporal_features_size=temporal_features_size,
             target_size=target_size,
             hidden_size=hidden_size,
             n_heads=n_heads,
@@ -87,7 +89,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         e0_backbone = TFTBackbone(
             horizon=horizon,
             static_features_size=static_features_size,
-            temporal_features_size=temporal_features_size+1,
+            temporal_features_size=temporal_features_size,
             target_size=target_size,
             hidden_size=hidden_size,
             n_heads=n_heads,
@@ -107,7 +109,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         theta_backbone = TFTBackbone(
             horizon=horizon,
             static_features_size=static_features_size,
-            temporal_features_size=temporal_features_size + 1,
+            temporal_features_size=temporal_features_size,
             target_size=target_size,
             hidden_size=hidden_size,
             n_heads=n_heads,
@@ -125,7 +127,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         )
 
         self.m0_head = create_sequential_layers(last_nn, hidden_size, target_size)
-        self.treatment_module: T = T(
+        self.treatment_module: T = treatment_module_class(
             theta_backbone=theta_backbone,
             e0_backbone=e0_backbone,
             treatment_max_value=treatment_max_value,
@@ -140,9 +142,9 @@ class CausalTFT(TFTBaseline, Generic[T]):
     def training_theta(self) -> bool:
         return self.treatment_module.training_theta
 
-    @property.setter
+    @training_theta.setter
     def training_theta(self, value: bool):
-        return self.treatment_module.training_theta = value
+        self.treatment_module.training_theta = value
 
     def train(self, mode: bool = True):
         super().train(mode)
@@ -155,10 +157,10 @@ class CausalTFT(TFTBaseline, Generic[T]):
     def forward(self, windows_batch: dict[str, Tensor], tau: Tensor | None = None):
 
         if self.training and not self.training_theta:
-            m0 = self.m0_head(self.m0_backbone.get_Z(windows_batch, tau))
+            m0 = self.m0_head(self.m0_backbone.get_z(windows_batch, tau))
         else:
             with torch.no_grad():
-                m0 = self.m0_head(self.m0_backbone.get_Z(windows_batch, tau))
+                m0 = self.m0_head(self.m0_backbone.get_z(windows_batch, tau))
         e0, theta = self.treatment_module.forward(windows_batch, tau)
 
         return m0, e0, theta
@@ -184,7 +186,6 @@ class CausalTFT(TFTBaseline, Generic[T]):
         m0, e0, theta = self.forward(windows, taus)
         return self.orthogonal_forecast(y.shape, m0, e0, theta, treatments)
 
-    @override
     def loss(
         self, y: Tensor, treatment: Tensor, m0: Tensor, e0: Tensor, theta: Tensor, active_entries: Tensor
     ) -> tuple[Tensor, ...]:

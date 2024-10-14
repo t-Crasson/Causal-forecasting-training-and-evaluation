@@ -48,7 +48,7 @@ if __name__=="__main__":
             learning_rate=1e-4,
             attn_dropout=0.1,
             dropout=0.1,
-            temporal_features_size=27,
+            temporal_features_size=28,
             last_nn=[hidden_size],
             static_embedding_sizes=embedding_size_stat,
             temporal_embedding_sizes=embedding_size_future,
@@ -76,7 +76,7 @@ if __name__=="__main__":
 
         dataset_collection.process_data_multi_val()
         dataset_collection.process_data_multi_train()
-        logger = pl_loggers.TensorBoardLogger(save_dir="./", name="TFT_repro_clean",version = f"base_line_clean_{i}")
+        logger = pl_loggers.TensorBoardLogger(save_dir="./", name="TFT_repro_clean",version = f"baseline_clean_{i}")
         trainer = pl.Trainer(accelerator ="gpu",
                             #strategy='ddp_find_unused_parameters_true',
                             max_epochs = 2,
@@ -89,3 +89,4 @@ if __name__=="__main__":
         train_loader = DataLoader(dataset_collection.train_f_multi, shuffle=True, batch_size=batch_size)
         val_loader = DataLoader(dataset_collection.val_f_multi, batch_size=batch_size)
         trainer.fit(model,train_loader,val_loader)
+        break

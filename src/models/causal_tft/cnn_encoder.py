@@ -100,7 +100,7 @@ class CausalCNNEncoder(nn.Module):
             _type_: _description_
         """
         # We apply a first features selection to the features known for the whole time series
-        x = self.temporal_vsn(temporal_features[:,:,:-self.serie_size])
+        x = self.temporal_vsn(temporal_features[:,:,:-self.trend_size])
         # We then add the effect of the features known until tau
         if tau is not None:
             past_effect = self.past_vsn(temporal_features)

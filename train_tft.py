@@ -20,6 +20,7 @@ if __name__=="__main__":
     with open('/home/thomas/fork_causal_transformer/Causal-forecasting-training-and-evaluation/config/dataset/mimic3_real.yaml', 'r') as file:
         config = yaml.safe_load(file)["dataset"]
     seeds = [10,101,1001,10010,10110]
+    seeds = [10,101]
     for i in range(len(seeds)):
         torch.manual_seed(seeds[i])
         torch.cuda.manual_seed(seeds[i])
@@ -78,10 +79,10 @@ if __name__=="__main__":
 
         dataset_collection.process_data_multi_val()
         dataset_collection.process_data_multi_train()
-        logger = pl_loggers.TensorBoardLogger(save_dir="./", name="TFT",version = f"baseline_large_multi_repro_bis_2_{i}")
+        logger = pl_loggers.TensorBoardLogger(save_dir="./", name="TFT_repro_clean",version = f"baseline_ref_{i}")
         trainer = pl.Trainer(accelerator ="gpu",
                             #strategy='ddp_find_unused_parameters_true',
-                            max_epochs = 5,
+                            max_epochs = 2,
                             devices = -1,
                             callbacks = checkpoint_callback,
                             logger = logger,

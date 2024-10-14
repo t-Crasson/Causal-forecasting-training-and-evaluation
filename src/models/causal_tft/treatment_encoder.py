@@ -32,16 +32,16 @@ class AbstractTreatmentModule(nn.Module, ABC):
         if self.training:
             if self.training_theta:
                 with torch.no_grad():
-                    e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_Z(windows_batch, tau)))
+                    e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
                 theta = self.head(self.backbone.get_z(windows_batch, tau))
             else:
-                e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_Z(windows_batch, tau)))
+                e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
                 with torch.no_grad():
                     theta = torch.ones_like(e0)
         else:
             with torch.no_grad():
-                e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_Z(windows_batch, tau)))
-                theta = self.head(self.backbone.get_z(windows_batch, tau))
+                e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
+                theta = self.theta_head(self.theta_backbone.get_z(windows_batch, tau))
 
         return e0, theta
 
@@ -72,13 +72,13 @@ class OneHotTreatmentModule(AbstractTreatmentModule):
         self.e0_norm_function = nn.Softmax(dim=2)
 
     def encode_treatments(self, y_shape: tuple[int, ...], treatments: Tensor, e0_compare: bool = True):
-        encoded_treatments = torch.zeros(y_shape)
-        for k in range(self.treatment_max):
+        encoded_treatments = torch.zeros(y_shape, device=treatments.device)
+        for k in range(self.treatment_max_value):
             encoded_treatments += treatments[:, :, -1 - k].clone().unsqueeze(-1) * (2 ** k)
 
         if not e0_compare:
             encoded_treatments = encoded_treatments[:, :, 0].long()
-            encoded_treatments = F.one_hot(encoded_treatments, 2 ** self.treatment_max).float()
+            encoded_treatments = F.one_hot(encoded_treatments, 2 ** self.treatment_max_value).float()
 
         return encoded_treatments
 
@@ -90,7 +90,7 @@ class OneHotTreatmentModule(AbstractTreatmentModule):
 
     def loss_e0(self, encoded_treatments: Tensor, e0: Tensor):
         return self.classification_loss(
-            e0.reshape(-1, 2 ** self.treatment_max),
+            e0.reshape(-1, 2 ** self.treatment_max_value),
             encoded_treatments.flatten().long(),
             reduction="none"
         )
@@ -110,12 +110,12 @@ class CumulativeTreatmentModule(AbstractTreatmentModule):
         self.eps = 1e-7
 
     def encode_treatments(self, y_shape: tuple[int, ...], treatments: Tensor, e0_compare: bool = True):
-        encoded_treatments = torch.zeros(y_shape)
-        for k in range(self.treatment_max):
+        encoded_treatments = torch.zeros(y_shape, device=treatments.device)
+        for k in range(self.treatment_max_value):
             encoded_treatments += treatments[:, :, -1 - k].clone().unsqueeze(-1) * (2 ** k)
 
         encoded_treatments = encoded_treatments[:, :, 0].long()
-        encoded_treatments = F.one_hot(encoded_treatments, 2 ** self.treatment_max).float()
+        encoded_treatments = F.one_hot(encoded_treatments, 2 ** self.treatment_max_value).float()
         encoded_treatments = 1 - torch.cumsum(encoded_treatments, dim=-1)
 
         return encoded_treatments

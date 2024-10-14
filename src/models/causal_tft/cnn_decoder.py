@@ -2,7 +2,8 @@ from torch import nn, Tensor
 from torch.nn import functional as F
 from encodec.modules.conv import SConvTranspose1d
 
-from src.models.causal_tft.attention import AttentionBlock, Resblock
+from src.models.causal_tft.attention import AttentionBlock
+from src.models.causal_tft.utils import Resblock
 
 class CNNDecoder(nn.Module):
     def __init__(
@@ -58,7 +59,7 @@ class CNNDecoder(nn.Module):
             li_up.append(DecoderBlock(
                 n_heads=n_heads, 
                 input_channels=input_channels, 
-                output_channles=input_channels-hidden_size, 
+                output_channels=input_channels-hidden_size, 
                 origin_size=hidden_size, 
                 attn_dropout=attn_dropout, 
                 dropout=dropout,

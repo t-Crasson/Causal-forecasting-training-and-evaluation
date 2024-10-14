@@ -108,15 +108,15 @@ class TFTEmbedding(nn.Module):
         #Dimension augmentation for known future data
         elif (cont is not None and is_multivariate):
             #Continuous process
-            continuous = cont[:,:,self.n_static_categorical_features:]
-            cont_emb_continuous = cont_emb[self.n_static_categorical_features]
-            cont_bias_continuous = cont_bias[self.n_static_categorical_features:]
+            continuous = cont[:,:,self.n_temporal_categorical_features:]
+            cont_emb_continuous = cont_emb[self.n_temporal_categorical_features]
+            cont_bias_continuous = cont_bias[self.n_temporal_categorical_features:]
             continuous_transformed = torch.mul(continuous.unsqueeze(-1), cont_emb_continuous) + cont_bias_continuous
             #Categorical process
-            categorical = cont[:,:,:self.n_static_categorical_features].int()
+            categorical = cont[:,:,:self.n_temporal_categorical_features].int()
             embedding_representation = []
-            if self.n_static_categorical_features > 0:
-                for i in range(self.n_static_categorical_features):
+            if self.n_temporal_categorical_features > 0:
+                for i in range(self.n_temporal_categorical_features):
                     embedding_representation.append(self.embedding_list_future[i](categorical[:,:,i]))
                     embedding = F.gelu(torch.stack(embedding_representation, dim=1))
                     embedding = embedding.permute((0,2,1,3))

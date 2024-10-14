@@ -1,4 +1,4 @@
-import torch
+from src.models.causal_tft.utils import VariableSelectionNetwork
 from torch import nn, Tensor
 from torch.nn import functional as F
 
