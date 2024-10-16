@@ -1,0 +1,13 @@
+# @package _global_
+rdd:
+  rdd_model_class_path: src.rdd.rdd_models.SingleLinearRddModel
+  rdd_model_kwargs:
+    kernel_bandwidth: 5
+    kernel_shape: rectangular
+  treatment_column: treatment
+  outcome_column: blood_pressure
+  time_step_column: hours_in
+  time_series_unique_id_columns:
+    - signal_id
+  destination_file_path: ???
+  n_jobs: 1
