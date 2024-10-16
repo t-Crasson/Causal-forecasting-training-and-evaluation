@@ -9,7 +9,7 @@ rdd:
   time_step_column: hours_in
   time_series_unique_id_columns:
     - subject_id
-  destination_file_path: /Users/yacine/Desktop/tmp/mimic_rdd_dataset_repro.parquet
+  destination_file_path: data/processed/rdd_dataset.parquet
   static_columns_to_add: []
-  seeds: []
+  seeds: [10,101,1001,10010,10110]
   n_jobs: 8
