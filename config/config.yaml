@@ -29,8 +29,12 @@ exp:
   weights_ema:                      # Exponential moving average of weights
   beta: 0.99                        # EMA beta
 
+
+rdd:
+
 # Hydra defaults
 defaults:
   - _self_
-  - override hydra/hydra_logging: colorlog
-  - override hydra/job_logging: colorlog
+  - rdd/mimic3_rdd.yaml
+#  - override hydra/hydra_logging: colorlog
+#  - override hydra/job_logging: colorlog

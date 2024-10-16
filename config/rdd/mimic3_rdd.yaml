@@ -5,9 +5,11 @@ rdd:
     kernel_bandwidth: 5
     kernel_shape: rectangular
   treatment_column: treatment
-  outcome_column: blood_pressure
+  outcome_column: diastolic blood pressure
   time_step_column: hours_in
   time_series_unique_id_columns:
-    - signal_id
-  destination_file_path: ???
-  n_jobs: 1
+    - subject_id
+  destination_file_path: /Users/yacine/Desktop/tmp/mimic_rdd_dataset_repro.parquet
+  static_columns_to_add: []
+  seeds: []
+  n_jobs: 8

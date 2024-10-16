@@ -6,8 +6,6 @@ import pandas as pd
 from sklearn.base import RegressorMixin
 from sklearn.linear_model import Ridge
 
-from hotep.exceptions import HotepException
-
 
 class AbstractRddModel:
     def __init__(self, **kwargs: dict[str, Any]) -> None:
@@ -33,7 +31,7 @@ class AbstractRddModel:
         raise NotImplementedError
 
     @abstractmethod
-    def estimate_cate(self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]) -> float:
+    def estimate_cate(self) -> float:
         raise NotImplementedError
 
 
@@ -61,7 +59,7 @@ class SingleLinearRddModel(AbstractRddModel):
         return sample_weights
 
     def generate_features(self, time_step_values: list[int]) -> pd.DataFrame:
-        # day_xs are centered towards 0 to easily differentiate model parameters associated to the left
+        # time steps are centered towards 0 to easily differentiate model parameters associated to the left
         # part or the right part
         time_step_values = np.array(time_step_values) - self._switching_time_step
         features_df = pd.DataFrame(
@@ -93,7 +91,7 @@ class SingleLinearRddModel(AbstractRddModel):
     ) -> "AbstractRddModel | None":
         self._switching_time_step = prediction_time_step
         single_series_df_fit_indexes = sorted_single_series_df.query(
-            "@left_time_step_min <= day_x <= @right_time_step_max"
+            f"@left_time_step_min <= {time_step_column} <= @right_time_step_max"
         ).index.values
 
         model_time_step_values = sorted_single_series_df.loc[single_series_df_fit_indexes, time_step_column].values
@@ -121,9 +119,9 @@ class SingleLinearRddModel(AbstractRddModel):
 
     def predict(self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]) -> list[float]:
         if self.model is None:
-            raise HotepException("Can't predict if the model is not fitted")
+            raise Exception("Can't predict if the model is not fitted")
 
         return self.model.predict(self.generate_features(time_step_values=time_steps)).tolist()
 
-    def estimate_cate(self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]) -> float:
+    def estimate_cate(self) -> float:
         return self.model.coef_[1]

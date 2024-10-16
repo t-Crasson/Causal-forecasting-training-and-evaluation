@@ -23,8 +23,8 @@ def _extract_switching_time_steps(sorted_single_series_df: pd.DataFrame, treatme
 
     :param sorted_single_series_df: dataframe containing data associated to a single time series sorted by time step
     :param treatment_column: column representing a unique value per treatment
-    :return: a list of tuples composed of the first day_x index and the last day_x index + 1 for each price
-    changed observed for this od_id
+    :return: a list of tuples composed of the first time step index and the last time step index + 1 for switching
+    time step in this time series
     """
     treatments = sorted_single_series_df[treatment_column].values.tolist()
     contiguous_treatment_indexes = []
@@ -51,8 +51,8 @@ def rdd_indexes_iterator(sorted_single_series_df: pd.DataFrame, treatment_column
     :param sorted_single_series_df: column representing a unique value per treatment
     :param treatment_column: column representing a unique value per treatment
     """
-    # We need to first extract all the constant price indexes in order to, given a constant price index, check the
-    # values of the next constant price index
+    # We need to first extract all the switching time steps indexes in order to, given a switching time step index,
+    # check the values of the next switching time step index
     constant_prices_indexes = _extract_switching_time_steps(
         sorted_single_series_df=sorted_single_series_df, treatment_column=treatment_column
     )
@@ -92,7 +92,7 @@ def compute_time_series_rdd_values(
     each extracted switching time step, the CATE value using an RDD model.
 
     :param sorted_single_series_df: sorted_single_series_df dataframe sorted by time steps
-    :param rdd_model_class: Simple model to use in order to extract the price treatment effect
+    :param rdd_model_class: Simple model to use in order to extract the treatment effect
     :param treatment_column: treatment column. The time series dataframe should contain a unique value for each possible
     treatment value
     :param outcome_column: outcome column
@@ -106,9 +106,9 @@ def compute_time_series_rdd_values(
     """
     static_columns_to_add = static_columns_to_add or []
     res_df_dict: dict[str, list] = {
-        "time_step": [],
-        "number_days_left": [],
-        "number_days_right": [],
+        time_step_column: [],
+        "number_steps_left": [],
+        "number_steps_right": [],
         "CATE": [],
         "left_treatment": [],
         "right_treatment": [],
@@ -118,7 +118,7 @@ def compute_time_series_rdd_values(
     time_step_values = sorted_single_series_df[time_step_column].values.tolist()
     time_series_static_values = sorted_single_series_df.iloc[0]
 
-    # iterate over all day_xs where there is a price changed in the od_id
+    # iterate over all switching time steps
     for (
         left_time_step_min_index,
         left_time_step_max_index,
@@ -126,8 +126,8 @@ def compute_time_series_rdd_values(
         right_time_step_max_index,
         prediction_index,
     ) in rdd_indexes_iterator(sorted_single_series_df=sorted_single_series_df, treatment_column=treatment_column):
-        # fit the rdd model on left and right day_xs then do the prediction
-        # for both the left price and right price at the prediction day_x
+        # fit the rdd model on left and right time steps then do the prediction
+        # for both the left treatment and right treatment at the prediction time step
         model = rdd_model_class(**(rdd_model_kwargs or {})).fit(
             sorted_single_series_df=sorted_single_series_df,
             left_time_step_min=time_step_values[left_time_step_min_index],
@@ -136,6 +136,7 @@ def compute_time_series_rdd_values(
             right_time_step_max=time_step_values[right_time_step_max_index] - 1,
             prediction_time_step=time_step_values[prediction_index],
             outcome_column=outcome_column,
+            time_step_column=time_step_column,
         )
 
         if model is None:
@@ -145,19 +146,12 @@ def compute_time_series_rdd_values(
         cate = model.estimate_cate()
 
         # format results
-        res_df_dict["time_step"].append(time_step_values[prediction_index])
+        res_df_dict[time_step_column].append(time_step_values[prediction_index])
         res_df_dict["CATE"].append(cate)
-        res_df_dict["number_days_left"].append(left_time_step_max_index - left_time_step_min_index)
-        res_df_dict["number_days_right"].append(right_time_step_max_index - right_time_step_min_index)
+        res_df_dict["number_steps_left"].append(left_time_step_max_index - left_time_step_min_index)
+        res_df_dict["number_steps_right"].append(right_time_step_max_index - right_time_step_min_index)
         res_df_dict["left_treatment"].append(treatment_values[left_time_step_min_index])
         res_df_dict["right_treatment"].append(treatment_values[right_time_step_min_index])
-        res_df_dict["rdd_model_std_confidence"].append(model.fitted_model_std_confidence)
-        res_df_dict["rdd_model_mean_confidence"].append(model.fitted_model_mean_confidence)
-        res_df_dict["rdd_model_relative_std_confidence"].append(
-            (model.fitted_model_std_confidence / max(abs(model.fitted_model_mean_confidence), 0))
-            if model.fitted_model_mean_confidence is not None and model.fitted_model_std_confidence is not None
-            else None
-        )
         for col in static_columns_to_add:
             res_df_dict[col].append(time_series_static_values[col])
 
@@ -194,7 +188,7 @@ def compute_rdd_values(
     Each row contains the rdd demand values, elasticity values and the other rdd metadata
     """
     rdd_model_class = _from_fully_qualified_import(rdd_model_class_path)
-    df.sort_values(time_series_unique_id_columns + [time_step_column], inplace=True, ignore_index=True)
+    df.sort_values([*time_series_unique_id_columns, time_step_column], inplace=True, ignore_index=True)
 
     tqdm.pandas(desc=f"Estimating CATE per time series for index {str_index or 0}")
     return (
@@ -246,10 +240,10 @@ def compute_rdd_values_n_jobs(
         df=df, n_chunks=n_jobs, time_series_unique_id_columns=time_series_unique_id_columns
     )
 
-    # Compute rdd dataset. The output is a dataset with one row per (prediction_level-day_x)/price changed day_x
+    # Compute rdd dataset
     results = joblib.Parallel(n_jobs=n_jobs, backend='loky')(
         joblib.delayed(compute_rdd_values)(
-            df=df[df[unique_id_column].isin(set(ids_chunk))].drop(columns=[unique_id_column]),
+            df=df[df[unique_id_column].isin(set(ids_chunk))],
             rdd_model_class_path=rdd_model_class_path,
             rdd_model_kwargs=rdd_model_kwargs,
             treatment_column=treatment_column,
@@ -261,6 +255,7 @@ def compute_rdd_values_n_jobs(
         )
         for idx, ids_chunk in
         tqdm(enumerate(time_series_ids_chunks), desc="Computing arguments dataframe", total=len(time_series_ids_chunks))
+        if idx == 3
     )
 
     return pd.concat(results, axis=0)
@@ -278,7 +273,7 @@ def _split_time_series_in_chunks(
     :pram time_series_unique_id_columns: columns representing a unique time series in df
     """
     if len(time_series_unique_id_columns) == 1:
-        unique_id_col = time_series_unique_id_columns
+        unique_id_col = time_series_unique_id_columns[0]
     else:
         unique_id_col = "time_series_unique_id"
         df[unique_id_col] = df[time_series_unique_id_columns[0]].astype(str)
