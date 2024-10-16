@@ -255,7 +255,6 @@ def compute_rdd_values_n_jobs(
         )
         for idx, ids_chunk in
         tqdm(enumerate(time_series_ids_chunks), desc="Computing arguments dataframe", total=len(time_series_ids_chunks))
-        if idx == 3
     )
 
     return pd.concat(results, axis=0)

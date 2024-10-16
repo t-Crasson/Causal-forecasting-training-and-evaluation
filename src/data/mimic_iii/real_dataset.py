@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 
 from src import ROOT_PATH
-from src.data.rdd import update_mapping
+# from src.data.rdd import update_mapping
 from src.data.dataset_collection import RealDatasetCollection
 from src.data.mimic_iii.load_data import load_mimic3_data_processed
 
@@ -41,18 +41,18 @@ class MIMIC3RealDataset(Dataset):
         assert treatments.shape[0] == outcomes.shape[0]
         assert outcomes.shape[0] == vitals.shape[0]
 
-        self.rdd_dict_mapping = {}
-        dict_mapping_df = treatments.reset_index()
-        dict_mapping_df["treatment"] = 2*dict_mapping_df["vent"] + dict_mapping_df["vaso"]
-        dict_mapping_df.sort_values(["subject_id", "hours_in"], inplace=True, ignore_index=True)
-        dict_mapping_df.groupby("subject_id").apply(
-            update_mapping, 
-            dict_mapping=self.rdd_dict_mapping, 
-            price_column="treatment", 
-            od_id_column="subject_id",
-            time_column="hours_in",
-            min_delta_price=1,
-        )
+        # self.rdd_dict_mapping = {}
+        # dict_mapping_df = treatments.reset_index()
+        # dict_mapping_df["treatment"] = 2*dict_mapping_df["vent"] + dict_mapping_df["vaso"]
+        # dict_mapping_df.sort_values(["subject_id", "hours_in"], inplace=True, ignore_index=True)
+        # dict_mapping_df.groupby("subject_id").apply(
+        #     update_mapping, 
+        #     dict_mapping=self.rdd_dict_mapping, 
+        #     price_column="treatment", 
+        #     od_id_column="subject_id",
+        #     time_column="hours_in",
+        #     min_delta_price=1,
+        # )
 
         self.subset_name = subset_name
         user_sizes = vitals.groupby('subject_id').size()

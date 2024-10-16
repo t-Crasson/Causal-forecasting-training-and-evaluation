@@ -21,14 +21,13 @@ from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollectionCausal,MI
 MODEL_PREFIX_PATH = "/home/thomas/fork_causal_transformer/Causal-forecasting-training-and-evaluation"
 MODEL_PREFIX_FOLDER = "TFT_repro_clean"
 IS_CDF = False
-MODEL_PREFIX_NAME = f"{'cdf' if IS_CDF else 'density'}_pipeline_clean"
+MODEL_PREFIX_NAME = f"{'cdf' if IS_CDF else 'density'}_clean_ref"
 
 if __name__=="__main__":
     with open('/home/thomas/mimic/physionet.org/files/mimiciii/CausalTransformer/config/dataset/mimic3_real.yaml', 'r') as file:
         config = yaml.safe_load(file)["dataset"]
     
     seeds = [10,101,1001,10010,10110]
-    seeds = [10,101,1001]
     for i in range(len(seeds)):
         torch.manual_seed(seeds[i])
         torch.cuda.manual_seed(seeds[i])
@@ -89,25 +88,26 @@ if __name__=="__main__":
         dataset_collection.process_data_multi_val()
         dataset_collection.process_data_multi_train()
         
-        logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"m_e_{MODEL_PREFIX_NAME}_{i}")
-        trainer = pl.Trainer(accelerator ="gpu",
-                            #strategy='ddp_find_unused_parameters_true',
-                            max_epochs = 1,
-                            devices = 1,
-                            callbacks = checkpoint_callback,
-                            logger = logger,
-                            deterministic=not IS_CDF
-                            )    
+        # logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"m_e_{MODEL_PREFIX_NAME}_{i}")
+        # trainer = pl.Trainer(accelerator ="gpu",
+        #                     #strategy='ddp_find_unused_parameters_true',
+        #                     max_epochs = 15,
+        #                     devices = 1,
+        #                     callbacks = checkpoint_callback,
+        #                     logger = logger,
+        #                     deterministic=not IS_CDF
+        #                     )    
 
-        train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=True,batch_size=batch_size)
-        val_loader_s1 = DataLoader(dataset_collection.val_f_multi_s1, shuffle=False,batch_size=512)
-        model.training_theta = False
-        trainer.fit(model,train_loader_s1,val_loader_s1)
+        # train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=True,batch_size=batch_size)
+        # val_loader_s1 = DataLoader(dataset_collection.val_f_multi_s1, shuffle=False,batch_size=512)
+        # model.training_theta = False
+        # model.train()
+        # trainer.fit(model,train_loader_s1,val_loader_s1)
 
 
         train_loader_s2 = DataLoader(dataset_collection.train_f_multi_s2,shuffle=True,batch_size=batch_size)
         val_loader_s2 = DataLoader(dataset_collection.val_f_multi_s2, batch_size=512)
-        del model
+        # del model
         
         path = f"{MODEL_PREFIX_PATH}/{MODEL_PREFIX_FOLDER}/m_e_{MODEL_PREFIX_NAME}_{i}/checkpoints"
         file = os.listdir(path)[0]
@@ -139,12 +139,12 @@ if __name__=="__main__":
         logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"theta_{MODEL_PREFIX_NAME}_{i}")
         trainer = pl.Trainer(accelerator ="gpu",
                             #strategy='ddp_find_unused_parameters_true',
-                            max_epochs = 1,
+                            max_epochs = 10,
                             devices = 1,
                             callbacks = checkpoint_callback,
                             logger = logger,
                             deterministic=not IS_CDF
                             )
         trainer.fit(model,train_loader_s2,val_loader_s2)
-        break
+        # break
         

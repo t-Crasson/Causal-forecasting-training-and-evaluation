@@ -12,7 +12,7 @@ def load_mimic_raw_data(
     dataset_config: dict[str, Any]
 ) -> pd.DataFrame:
     total_df = []
-
+    print(dataset_config)
     for seed in tqdm(seeds, desc="Load raw data from seeds"):
         treatments, outcomes, vitals, static_features, outcomes_unscaled, scaling_params = (
             load_mimic3_data_processed(
