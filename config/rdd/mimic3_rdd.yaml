@@ -11,5 +11,4 @@ rdd:
     - subject_id
   destination_file_path: data/processed/rdd_dataset.parquet
   static_columns_to_add: []
-  seeds: [10,101,1001,10010,10110]
   n_jobs: 8

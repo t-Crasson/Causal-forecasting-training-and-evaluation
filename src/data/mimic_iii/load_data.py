@@ -43,14 +43,15 @@ def load_mimic3_data_processed(data_path: str,
                                max_number: int = None,
                                data_seed: int = 100,
                                drop_first=False,
+                               fill_na=True,
                                **kwargs) \
         -> (pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, dict):
     """
     Load and pre-process MIMIC-3 hourly averaged dataset (for real-world experiments)
     :param data_path: Path with MIMIC-3 dataset (HDFStore)
-    :param min_seq_length: Min sequence lenght in cohort
-    :param min_seq_length: Max sequence lenght in cohort
-    :param treatment_list: List of treaments
+    :param min_seq_length: Min sequence length in cohort
+    :param max_seq_length: Max sequence length in cohort
+    :param treatment_list: List of treatments
     :param outcome_list: List of outcomes
     :param vital_list: List of vitals (time-varying covariates)
     :param static_list: List of static features
@@ -123,8 +124,9 @@ def load_mimic3_data_processed(data_path: str,
     static_features = static_features.droplevel(['hadm_id', 'icustay_id'])
 
     # Filling NA
-    all_vitals = all_vitals.fillna(method='ffill')
-    all_vitals = all_vitals.fillna(method='bfill')
+    if fill_na:
+        all_vitals = all_vitals.fillna(method='ffill')
+        all_vitals = all_vitals.fillna(method='bfill')
 
     # Filtering longer then min_seq_length and cropping to max_seq_length
     user_sizes = all_vitals.groupby('subject_id').size()
