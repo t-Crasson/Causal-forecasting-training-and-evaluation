@@ -25,7 +25,8 @@ def main(args: DictConfig):
 
     # Format a dataframe from the dataset
     logger.info("Reading and formatting dataframe")
-    df = load_mimic_raw_data(seeds=list(args.rdd.seeds), dataset_config=dict(args.dataset))
+    df = load_mimic_raw_data(dataset_config=dict(args.dataset))
+    df.dropna(inplace=True)
     df = encode_treatments(df=df, treatment_column=args.rdd.treatment_column)
 
     # Compute the RDD dataset

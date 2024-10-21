@@ -1,5 +1,4 @@
 
-
 from typing import Any
 import pandas as pd
 import numpy as np
@@ -46,19 +45,20 @@ RDD_QUERY_STR = "left_days >= 3 and right_days >= 3"
 TOP_PERCENT_OUTLIERS_SECLECTION = .025
 # METRICS_FILE_SUFFIX = "test_bug_density_pipeline"
 METRICS_FILE_SUFFIX = "rdd_repro"
+METRICS_FILE_SUFFIX = "rdd_repro"
 # METRICS_FILE_SUFFIX = "test_thomas_decay"
 TFT_MODELS = [
     # (
-    #     "TFT_density_repro_pipeline", 
-    #     "TFT_deterministic/m_e_density_repro_pipeline", 
-    #     #"TFT/m_e_density_large_final_correc", 
+    #     "TFT_density_repro_pipeline",
+    #     "TFT_deterministic/m_e_density_repro_pipeline",
+    #     #"TFT/m_e_density_large_final_correc",
     #     m_e_theta_daily,
     #     [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     # ),
     # (
-    #     "TFT_density_repro", 
-    #     "TFT_deterministic/theta_density_repro", 
-    #     #"TFT/m_e_density_large_final_correc", 
+    #     "TFT_density_repro",
+    #     "TFT_deterministic/theta_density_repro",
+    #     #"TFT/m_e_density_large_final_correc",
     #     m_e_theta_daily,
     #     [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     # ),
@@ -77,16 +77,16 @@ TFT_MODELS = [
     #     [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     # ),
     # (
-    #     "TFT_cdf", 
-    #     "TFT_deterministic/theta_cdf_low_lr_bis", 
-    #     #"TFT/m_e_density_large_final_correc", 
+    #     "TFT_cdf",
+    #     "TFT_deterministic/theta_cdf_low_lr_bis",
+    #     #"TFT/m_e_density_large_final_correc",
     #     m_e_theta_daily,
     #     [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     # ),
     # (
-    #     "TFT_cdf_low_lr", 
-    #     "TFT_deterministic/theta_cdf_low_lr_bis_1", 
-    #     #"TFT/m_e_density_large_final_correc", 
+    #     "TFT_cdf_low_lr",
+    #     "TFT_deterministic/theta_cdf_low_lr_bis_1",
+    #     #"TFT/m_e_density_large_final_correc",
     #     m_e_theta_daily,
     #     [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     # ),
@@ -98,17 +98,17 @@ TFT_MODELS = [
     #     [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     # ),
     (
-        "TFT_cdf_paper", 
-        "TFT_repro_compare/m_e_cdf_night", 
-        # "TFT_drop/theta_cdf_no_decay", 
+        "TFT_cdf_paper",
+        "TFT_repro_compare/m_e_cdf_night",
+        # "TFT_drop/theta_cdf_no_decay",
         m_e_theta_daily,
         [(SEEDS[idx], idx) for idx in range(len(SEEDS))]
     ),
     # (
     #     # name in final dataframe
-    #     "TFT_baseline", 
+    #     "TFT_baseline",
     #     # folder path
-    #     "TFT/baseline_large_multi_repro_bis_2", 
+    #     "TFT/baseline_large_multi_repro_bis_2",
     #     # model class
     #     baseline, [
     #         # (seed, index name in file name)
@@ -328,11 +328,14 @@ def forecast_ate_values(test_dl: DataLoader, model: torch.nn.Module, s_mean, s_s
             left_values.append(output[1, prediction_index, 0].item())
             subject_ids.append(subject_id)
             hours_in.append(prediction_index)
-            right_price, left_price = batch["current_treatments"][0, prediction_index, :].cpu().numpy(), batch["current_treatments"][1, prediction_index, :].cpu().numpy() # vaso / vent | 2vent + vaso
-            left_price = 2*left_price[0] + left_price[1]  # 2*vaso + vent
-            right_price = 2*right_price[0] + right_price[1]
+            right_price, left_price = (
+                batch["current_treatments"][0, prediction_index, :].cpu().numpy(),
+                batch["current_treatments"][1, prediction_index, :].cpu().numpy()
+            )
+            left_price = 2 * left_price[0] + left_price[1]  # 2*vaso + vent
+            right_price = 2 * right_price[0] + right_price[1]
             left_prices.append(left_price)
-            right_prices.append(right_price)   
+            right_prices.append(right_price)
 
     left_values = np.array(left_values) * s_std + s_mean
     right_values = np.array(right_values) * s_std + s_mean
@@ -359,21 +362,22 @@ def compute_rdd_metrics_for_seed(seed, tft_models_dict, device):
         max_seq_length=60,
         seed=seed,
         max_number=10000,
-        split = {"val":0.15,"test":0.15}, 
+        split={"val": 0.15, "test": 0.15},
         projection_horizon=5,
         autoregressive=True,
-        outcome_list = config["outcome_list"],
-        vitals = config["vital_list"],
-        treatment_list = config["treatment_list"],
-        static_list = config["static_list"]
+        outcome_list=config["outcome_list"],
+        vitals=config["vital_list"],
+        treatment_list=config["treatment_list"],
+        static_list=config["static_list"]
     )
     process_data_rdd(dataset_collection.test_f, time_shift=TIME_SHIFT)
 
     test_dataset_subject_ids = set(dataset_collection.test_f.data["subject_ids"].tolist())
     seed_rdd_df = rdd_dataset.query("subject_id in @test_dataset_subject_ids")
     print(len(seed_rdd_df))
-    s_mean, s_std = dataset_collection.test_f.scaling_params["output_means"], dataset_collection.test_f.scaling_params["output_stds"] 
-    
+    s_mean, s_std = dataset_collection.test_f.scaling_params["output_means"], dataset_collection.test_f.scaling_params[
+        "output_stds"]
+
     for model_name, (model_class, model_path) in tqdm(tft_models_dict.items(), desc=f"predictions for seed {seed}"):
         # loading model
         is_ct_model = model_name.startswith("CT")
@@ -389,18 +393,18 @@ def compute_rdd_metrics_for_seed(seed, tft_models_dict, device):
 
         # creating dataloader
         test_dl = DataLoader(
-            # dataset_collection_ct.test_f if is_ct_model else dataset_collection.test_f, 
-            dataset_collection.test_f, 
+            # dataset_collection_ct.test_f if is_ct_model else dataset_collection.test_f,
+            dataset_collection.test_f,
             batch_size=2,
             shuffle=False
-        ) # always use a batchsize of 2 !!!
+        )  # always use a batchsize of 2 !!!
 
         # predicting values
         ate_df = forecast_ate_values(
-            test_dl=test_dl, 
-            model=model, 
-            s_mean=s_mean, 
-            s_std=s_std, 
+            test_dl=test_dl,
+            model=model,
+            s_mean=s_mean,
+            s_std=s_std,
             time_shift=TIME_SHIFT,
             model_name=model_name
         )
@@ -418,7 +422,8 @@ def compute_rdd_metrics_for_seed(seed, tft_models_dict, device):
             how="inner"
         )
         print(len(seed_rdd_df))
-        seed_rdd_df[model_name + "_delta_demand"] = seed_rdd_df[model_name + "_right_predicted_demand"] - seed_rdd_df[model_name + "_left_predicted_demand"]
+        seed_rdd_df[model_name + "_delta_demand"] = seed_rdd_df[model_name + "_right_predicted_demand"] - seed_rdd_df[
+            model_name + "_left_predicted_demand"]
 
     seed_rdd_df["rdd_delta"] = seed_rdd_df["right_predicted_demand"] - seed_rdd_df["left_predicted_demand"]
     return seed, seed_rdd_df
@@ -429,10 +434,10 @@ if __name__ == "__main__":
 
     device = torch.device("cuda")
     # device = torch.device("cpu")
-    with open('/home/thomas/mimic/physionet.org/files/mimiciii/CausalTransformer/config/dataset/mimic3_real.yaml', 'r') as file:
+    with open('/home/thomas/mimic/physionet.org/files/mimiciii/CausalTransformer/config/dataset/mimic3_real.yaml',
+              'r') as file:
         config = yaml.safe_load(file)["dataset"]
 
-    
     # fetch checkpoint paths
     tft_models_dict_per_seed = {}
     rdd_df_per_seed = {}
@@ -443,7 +448,8 @@ if __name__ == "__main__":
             print(os.path.isdir(os.path.join(TFT_MODELS_PREFIX_PATH, f"{folder_name_prefix}_{file_index}")))
             tft_models_dict_per_seed.setdefault(seed, {})[f"{model_name_prefix}_{file_index}"] = (
                 model_class,
-                glob(os.path.join(TFT_MODELS_PREFIX_PATH, f"{folder_name_prefix}_{file_index}", "checkpoints/*.ckpt"))[-1],
+                glob(os.path.join(TFT_MODELS_PREFIX_PATH, f"{folder_name_prefix}_{file_index}", "checkpoints/*.ckpt"))[
+                    -1],
             )
 
     if COMPUTE_CT_VALUES:
@@ -454,7 +460,6 @@ if __name__ == "__main__":
                 None
             )
 
-
     print("Reading RDD dataset")
     rdd_dataset = pd.read_parquet(RDD_PATH).astype({"subject_id": int, "hours_in": int})
 
@@ -463,14 +468,14 @@ if __name__ == "__main__":
             seed=seed,
             tft_models_dict=tft_models_dict,
             device=device
-        ) 
+        )
         for seed, tft_models_dict in tft_models_dict_per_seed.items()
     )
 
     for seed, seed_rdd_df in results:
         rdd_df_per_seed[seed] = seed_rdd_df
-        seed_rdd_df.to_parquet(os.path.join(TARGET_PATH, f"rdd_metrics_seed_{seed}_time_{TIME_SHIFT}_{METRICS_FILE_SUFFIX}.parquet"))
-
+        seed_rdd_df.to_parquet(
+            os.path.join(TARGET_PATH, f"rdd_metrics_seed_{seed}_time_{TIME_SHIFT}_{METRICS_FILE_SUFFIX}.parquet"))
 
     # compute metrics per seed
     metrics_dict = {
@@ -484,21 +489,21 @@ if __name__ == "__main__":
             "query_str": RDD_QUERY_STR,
             "top_percent_outliers_filtereing": TOP_PERCENT_OUTLIERS_SECLECTION,
             "total_filtering_percent": {
-                seed: rdd_df_per_seed[seed].eval(RDD_QUERY_STR).mean() - (TOP_PERCENT_OUTLIERS_SECLECTION*2)
+                seed: rdd_df_per_seed[seed].eval(RDD_QUERY_STR).mean() - (TOP_PERCENT_OUTLIERS_SECLECTION * 2)
                 for seed in SEEDS
             },
         },
         "models_per_seed": {
-            seed:{
+            seed: {
                 model_name: model_path
                 for model_name, (_, model_path)
                 in models_per_seed_dict.items() if "CT_" not in model_name
             }
             for seed, models_per_seed_dict in tft_models_dict_per_seed.items()
         },
-        "raw_metrics":{
-            "metrics_per_seed": {}, 
-            "metrics_per_architecture": {}, 
+        "raw_metrics": {
+            "metrics_per_seed": {},
+            "metrics_per_architecture": {},
         },
         "filtered_metrics": {
             "metrics_per_seed": {},
@@ -518,16 +523,19 @@ if __name__ == "__main__":
             if RDD_QUERY_STR:
                 filtered_df = seed_df.query(RDD_QUERY_STR)
                 if TOP_PERCENT_OUTLIERS_SECLECTION:
-                    q1, q2 = filtered_df["rdd_delta"].quantile(q=[TOP_PERCENT_OUTLIERS_SECLECTION, 1-TOP_PERCENT_OUTLIERS_SECLECTION]).values.tolist()
+                    q1, q2 = filtered_df["rdd_delta"].quantile(
+                        q=[TOP_PERCENT_OUTLIERS_SECLECTION, 1 - TOP_PERCENT_OUTLIERS_SECLECTION]).values.tolist()
                     filtered_df.query("@q1 <= rdd_delta <= @q2", inplace=True)
 
-                metrics_dict["filtered_metrics"]["metrics_per_seed"].setdefault(seed, {}).setdefault("rmse", {})[model_name] = (
-                    np.sqrt(mean_squared_error(y_true=filtered_df["rdd_delta"], y_pred=filtered_df[model_name + "_delta_demand"]))
+                metrics_dict["filtered_metrics"]["metrics_per_seed"].setdefault(seed, {}).setdefault("rmse", {})[
+                    model_name] = (
+                    np.sqrt(mean_squared_error(y_true=filtered_df["rdd_delta"],
+                                               y_pred=filtered_df[model_name + "_delta_demand"]))
                 )
                 metrics_dict["filtered_metrics"]["metrics_per_seed"][seed].setdefault("mae", {})[model_name] = (
-                    np.sqrt(mean_absolute_error(y_true=filtered_df["rdd_delta"], y_pred=filtered_df[model_name + "_delta_demand"]))
+                    np.sqrt(mean_absolute_error(y_true=filtered_df["rdd_delta"],
+                                                y_pred=filtered_df[model_name + "_delta_demand"]))
                 )
-
 
         # format metrics per architecture
         metrics_weights = list(metrics_dict["rdd_dataset_len_per_seed"].values())
@@ -538,55 +546,68 @@ if __name__ == "__main__":
         for architecture, *_, seeds in TFT_MODELS:
             rmse_metric_values = np.round([
                 metrics_dict["raw_metrics"]["metrics_per_seed"][seed]["rmse"][f"{architecture}_{idx}"]
+                metrics_dict["raw_metrics"]["metrics_per_seed"][seed]["rmse"][f"{architecture}_{idx}"]
                 for seed, idx in seeds
             ], 8).tolist()
             mae_metric_values = np.round([
+                metrics_dict["raw_metrics"]["metrics_per_seed"][seed]["mae"][f"{architecture}_{idx}"]
                 metrics_dict["raw_metrics"]["metrics_per_seed"][seed]["mae"][f"{architecture}_{idx}"]
                 for seed, idx in seeds
             ], 8).tolist()
             rmse_weighted_average = np.average(rmse_metric_values, weights=metrics_weights)
             mae_weighted_average = np.average(mae_metric_values, weights=metrics_weights)
             metrics_dict["raw_metrics"]["metrics_per_architecture"][architecture] = {
-                "rmse":{
+                "rmse": {
                     "values": rmse_metric_values,
                     "mean": np.mean(rmse_metric_values),
                     "std": np.std(rmse_metric_values),
                     "weighted_mean": rmse_weighted_average,
-                    "weighted_std": np.round(np.sqrt(np.average((np.array(rmse_metric_values)-rmse_weighted_average)**2, weights=metrics_weights)), 8),
+                    "weighted_std": np.round(np.sqrt(
+                        np.average((np.array(rmse_metric_values) - rmse_weighted_average) ** 2,
+                                   weights=metrics_weights)), 8),
                 },
                 "mae": {
-                   "values": mae_metric_values,
+                    "values": mae_metric_values,
                     "mean": np.mean(mae_metric_values),
                     "std": np.std(mae_metric_values),
                     "weighted_mean": mae_weighted_average,
-                    "weighted_std": np.round(np.sqrt(np.average((np.array(mae_metric_values)-mae_weighted_average)**2, weights=metrics_weights)), 8), 
+                    "weighted_std": np.round(np.sqrt(
+                        np.average((np.array(mae_metric_values) - mae_weighted_average) ** 2, weights=metrics_weights)),
+                                             8),
                 }
             }
             if RDD_QUERY_STR:
                 rmse_metric_values = [
                     metrics_dict["filtered_metrics"]["metrics_per_seed"][seed]["rmse"][f"{architecture}_{idx}"]
+                    metrics_dict["filtered_metrics"]["metrics_per_seed"][seed]["rmse"][f"{architecture}_{idx}"]
                     for seed, idx in seeds
                 ]
                 mae_metric_values = [
+                    metrics_dict["filtered_metrics"]["metrics_per_seed"][seed]["mae"][f"{architecture}_{idx}"]
                     metrics_dict["filtered_metrics"]["metrics_per_seed"][seed]["mae"][f"{architecture}_{idx}"]
                     for seed, idx in seeds
                 ]
                 rmse_weighted_average = np.average(rmse_metric_values, weights=metrics_filtered_weights)
                 mae_weighted_average = np.average(mae_metric_values, weights=metrics_filtered_weights)
                 metrics_dict["filtered_metrics"]["metrics_per_architecture"][architecture] = {
+                metrics_dict["filtered_metrics"]["metrics_per_architecture"][architecture] = {
                     "rmse": {
                         "values": rmse_metric_values,
                         "mean": np.mean(rmse_metric_values),
                         "std": np.std(rmse_metric_values),
                         "weighted_mean": rmse_weighted_average,
-                        "weighted_std": np.round(np.sqrt(np.average((np.array(rmse_metric_values)-rmse_weighted_average)**2, weights=metrics_filtered_weights)), 8),
+                        "weighted_std": np.round(np.sqrt(
+                            np.average((np.array(rmse_metric_values) - rmse_weighted_average) ** 2,
+                                       weights=metrics_filtered_weights)), 8),
                     },
                     "mae": {
                         "values": mae_metric_values,
                         "mean": np.mean(mae_metric_values),
                         "std": np.std(mae_metric_values),
                         "weighted_mean": mae_weighted_average,
-                        "weighted_std": np.round(np.sqrt(np.average((np.array(mae_metric_values)-mae_weighted_average)**2, weights=metrics_filtered_weights)), 8),
+                        "weighted_std": np.round(np.sqrt(
+                            np.average((np.array(mae_metric_values) - mae_weighted_average) ** 2,
+                                       weights=metrics_filtered_weights)), 8),
                     }
                 }
         if COMPUTE_CT_VALUES:
@@ -606,14 +627,18 @@ if __name__ == "__main__":
                     "mean": np.mean(ct_rmse_metric_values),
                     "std": np.std(ct_rmse_metric_values),
                     "weighted_mean": ct_rmse_weighted_average,
-                    "weighted_std": np.round(np.sqrt(np.average((np.array(ct_rmse_metric_values)-ct_rmse_weighted_average)**2, weights=metrics_weights)), 8),
+                    "weighted_std": np.round(np.sqrt(
+                        np.average((np.array(ct_rmse_metric_values) - ct_rmse_weighted_average) ** 2,
+                                   weights=metrics_weights)), 8),
                 },
                 "mae": {
                     "values": ct_mae_metric_values,
                     "mean": np.mean(ct_mae_metric_values),
                     "std": np.std(ct_mae_metric_values),
                     "weighted_mean": ct_mae_weighted_average,
-                    "weighted_std": np.round(np.sqrt(np.average((np.array(ct_mae_metric_values)-ct_mae_weighted_average)**2, weights=metrics_weights)), 8),
+                    "weighted_std": np.round(np.sqrt(
+                        np.average((np.array(ct_mae_metric_values) - ct_mae_weighted_average) ** 2,
+                                   weights=metrics_weights)), 8),
                 }
             }
             if RDD_QUERY_STR:
@@ -633,18 +658,21 @@ if __name__ == "__main__":
                         "mean": np.mean(ct_rmse_metric_values),
                         "std": np.std(ct_rmse_metric_values),
                         "weighted_mean": ct_rmse_weighted_average,
-                        "weighted_std": np.round(np.sqrt(np.average((np.array(ct_rmse_metric_values)-ct_rmse_weighted_average)**2, weights=metrics_filtered_weights)), 8),
+                        "weighted_std": np.round(np.sqrt(
+                            np.average((np.array(ct_rmse_metric_values) - ct_rmse_weighted_average) ** 2,
+                                       weights=metrics_filtered_weights)), 8),
                     },
                     "mae": {
                         "values": ct_mae_metric_values,
                         "mean": np.mean(ct_mae_metric_values),
                         "std": np.std(ct_mae_metric_values),
                         "weighted_mean": ct_mae_weighted_average,
-                        "weighted_std": np.round(np.sqrt(np.average((np.array(ct_mae_metric_values)-ct_mae_weighted_average)**2, weights=metrics_filtered_weights)), 8),
+                        "weighted_std": np.round(np.sqrt(
+                            np.average((np.array(ct_mae_metric_values) - ct_mae_weighted_average) ** 2,
+                                       weights=metrics_filtered_weights)), 8),
                     }
-                    
-                }
 
+                }
 
     # compute metrics per with filtered
     with open(os.path.join(TARGET_PATH, f"metrics_{TIME_SHIFT}_{METRICS_FILE_SUFFIX}.json"), "w") as f:
@@ -655,4 +683,3 @@ if __name__ == "__main__":
     print(f"METRICS FOR TIME SHIFT {TIME_SHIFT}")
     print(json.dumps(metrics_dict, indent=4))
 
-        
