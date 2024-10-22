@@ -1,5 +1,4 @@
 from collections.abc import Generator
-from importlib import import_module
 from typing import Any
 
 import pandas as pd
@@ -8,12 +7,7 @@ import joblib
 from tqdm.auto import tqdm
 
 from src.rdd.rdd_models import AbstractRddModel
-
-
-def _from_fully_qualified_import(import_path: str) -> Any:
-    """Import python module from string import path"""
-    parts = import_path.rsplit(".", 1)
-    return getattr(import_module(parts[0]), parts[1])
+from src.rdd.utils import encode_treatments, from_fully_qualified_import
 
 
 def _extract_switching_time_steps(sorted_single_series_df: pd.DataFrame, treatment_column: str) -> list[tuple[int, int]]:
@@ -41,23 +35,17 @@ def _extract_switching_time_steps(sorted_single_series_df: pd.DataFrame, treatme
     return contiguous_treatment_indexes
 
 
-def rdd_indexes_iterator(sorted_single_series_df: pd.DataFrame, treatment_column: str) -> Generator[tuple, None, None]:
+def rdd_indexes_iterator(constant_treatments_indexes: list[tuple[int, int]]) -> Generator[tuple, None, None]:
     """
-    generator extracting and iterating over all time series' switching time step. For switching time step, we extract
+    generator iterating over all time series' switching time step. For switching time step, we extract
     the first time step and last time step index from the sorted single time series dataframe.
     The generator also skips switching time step where we don't have enough values to estimate the
     treatment effect using RDD.
 
     :param sorted_single_series_df: column representing a unique value per treatment
-    :param treatment_column: column representing a unique value per treatment
     """
-    # We need to first extract all the switching time steps indexes in order to, given a switching time step index,
-    # check the values of the next switching time step index
-    constant_prices_indexes = _extract_switching_time_steps(
-        sorted_single_series_df=sorted_single_series_df, treatment_column=treatment_column
-    )
-    for sequence_index, (time_step_min_index, time_step_max_index) in enumerate(constant_prices_indexes[:-1]):
-        next_time_step_min_index, next_time_step_max_index = constant_prices_indexes[sequence_index + 1]
+    for sequence_index, (time_step_min_index, time_step_max_index) in enumerate(constant_treatments_indexes[:-1]):
+        next_time_step_min_index, next_time_step_max_index = constant_treatments_indexes[sequence_index + 1]
         if next_time_step_max_index <= next_time_step_min_index + 1 or time_step_max_index <= time_step_min_index + 1:
             # If we only have one day before the switching time step or after the switching time step we can't fit an
             # rdd model to predict the treatment effect
@@ -76,6 +64,25 @@ def rdd_indexes_iterator(sorted_single_series_df: pd.DataFrame, treatment_column
             next_time_step_max_index,
             prediction_index
         )
+
+
+def compute_subject_id_swicthing_time_steps_mapping(df: pd.DataFrame) -> dict[int, list[tuple[int, int]]]:
+    """Computes a dict mapping eahc subject id to the list of switching time steps associated to it
+
+    :param df: Raw dataframe
+
+    Returns:
+        dict[int, list[tuple[int, int]]]: mapping subject id to the switching time steps
+    """
+    formatted_df = df.sort_values(["subject_id", "hours_in"], ignore_index=True)
+    formatted_df = encode_treatments(formatted_df, treatment_column="treatment")
+    dict_mapping = {}
+    def _fill_dict_mapping(_sorted_series_df, _dict_mapping):
+        subject_id = _sorted_series_df["subject_id"].values[0]
+        _dict_mapping[subject_id] = _extract_switching_time_steps(_sorted_series_df, treatment_column="treatment")
+    formatted_df.groupby("subject_id").apply(_fill_dict_mapping, dict_mapping)
+
+    return dict_mapping
 
 
 def compute_time_series_rdd_values(
@@ -118,6 +125,12 @@ def compute_time_series_rdd_values(
     time_step_values = sorted_single_series_df[time_step_column].values.tolist()
     time_series_static_values = sorted_single_series_df.iloc[0]
 
+    # We need to first extract all the switching time steps indexes in order to, given a switching time step index,
+    # check the values of the next switching time step index
+    constant_treatments_indexes = _extract_switching_time_steps(
+        sorted_single_series_df=sorted_single_series_df, treatment_column=treatment_column
+    )
+
     # iterate over all switching time steps
     for (
         left_time_step_min_index,
@@ -125,7 +138,10 @@ def compute_time_series_rdd_values(
         right_time_step_min_index,
         right_time_step_max_index,
         prediction_index,
-    ) in rdd_indexes_iterator(sorted_single_series_df=sorted_single_series_df, treatment_column=treatment_column):
+    ) in rdd_indexes_iterator(
+        constant_treatments_indexes=constant_treatments_indexes, 
+        treatment_column=treatment_column
+    ):
         # fit the rdd model on left and right time steps then do the prediction
         # for both the left treatment and right treatment at the prediction time step
         model = rdd_model_class(**(rdd_model_kwargs or {})).fit(
@@ -187,7 +203,7 @@ def compute_rdd_values(
     :return: Return a dataframe containing on row per time series unique id/switching time step.
     Each row contains the rdd demand values, elasticity values and the other rdd metadata
     """
-    rdd_model_class = _from_fully_qualified_import(rdd_model_class_path)
+    rdd_model_class = from_fully_qualified_import(rdd_model_class_path)
     df.sort_values([*time_series_unique_id_columns, time_step_column], inplace=True, ignore_index=True)
 
     tqdm.pandas(desc=f"Estimating CATE per time series for index {str_index or 0}")

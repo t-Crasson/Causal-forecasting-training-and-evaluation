@@ -1,6 +1,7 @@
 from typing import Any
 
 import pandas as pd
+from importlib import import_module
 
 from src import ROOT_PATH
 from src.data.mimic_iii.load_data import load_mimic3_data_processed
@@ -33,3 +34,8 @@ def load_mimic_raw_data(
 def encode_treatments(df: pd.DataFrame, treatment_column: str) -> pd.DataFrame:
     df[treatment_column] = 2 * df["vaso"] + df["vent"]
     return df
+
+def from_fully_qualified_import(import_path: str) -> Any:
+    """Import python module from string import path"""
+    parts = import_path.rsplit(".", 1)
+    return getattr(import_module(parts[0]), parts[1])

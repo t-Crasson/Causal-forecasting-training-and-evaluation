@@ -23,7 +23,7 @@ def main(args: DictConfig):
     OmegaConf.set_struct(args, False)
     logger.info('\n' + OmegaConf.to_yaml(args, resolve=True))
 
-    # Format a dataframe from the dataset
+    # Format a dataframe from the raw data
     logger.info("Reading and formatting dataframe")
     df = load_mimic_raw_data(dataset_config=dict(args.dataset))
     df.dropna(inplace=True)
