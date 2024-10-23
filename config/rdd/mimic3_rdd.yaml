@@ -14,15 +14,20 @@ rdd:
   n_jobs: 8
 
 rdd_metrics:
-  seeds: [10,101,1001,10010,10110]
+  # seeds: [10,101,1001,10010,10110]
+  seeds: [10]
   max_time_shift: 5
   tft_models_prefix_path: /home/thomas/fork_causal_transformer/Causal-forecasting-training-and-evaluation
-  ct_models_path: /home/thomas/mimic/physionet.org/files/mimiciii/CausalTransformer/multirun/2024-09-10/02-17-13
+  # ct_models_path: /home/thomas/mimic/physionet.org/files/mimiciii/CausalTransformer/multirun/2024-09-10/02-17-13
+  ct_models_path: null
   destination_file_path: data/processed/rdd_metrics.json
   rdd_query_str: number_steps_left >= 3 and number_steps_right >= 3
   top_percent_outliers_selection: .025
   tft_models: # each model is represented by name in the final file / folder path / model class path
-    - - TFT_baseline_paper
-      - TFT/baseline_large_multi
-      - src.models.baseline.baseline
+    # - - TFT_baseline_paper
+    #   - TFT/baseline_large_multi
+    #   - src.models.baseline.baseline
+    - - TFT_density
+      - TFT_repro_clean/theta_density_clean_repro_ref
+      - src.models.causal_tft.tft_causal.CausalTFT
 

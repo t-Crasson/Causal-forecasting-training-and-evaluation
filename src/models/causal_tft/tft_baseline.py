@@ -63,7 +63,6 @@ class TFTBaseline(TFTBackbone, pl.LightningModule):
             n_heads=n_heads,
             attn_dropout=attn_dropout,
             dropout=dropout,
-            learning_rate=learning_rate,
             static_embedding_sizes=static_embedding_sizes,
             temporal_embedding_sizes=temporal_embedding_sizes,
             trend_size=trend_size,
@@ -75,6 +74,7 @@ class TFTBaseline(TFTBackbone, pl.LightningModule):
         )
 
         self.regression_loss = nn.MSELoss()
+        self.learning_rate = learning_rate
         self.projection_length = projection_length
 
         # Creates the final dense network

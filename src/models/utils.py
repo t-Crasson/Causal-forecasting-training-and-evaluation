@@ -6,8 +6,20 @@ import torch.nn.functional as F
 from pytorch_lightning.callbacks import Callback
 from pytorch_lightning.loggers import MLFlowLogger
 from pytorch_lightning.utilities import rank_zero_only
+from pytorch_lightning import seed_everything
 from copy import deepcopy
 from typing import List
+import random
+
+
+
+def set_seed(seed: int):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.benchmark = True
+    seed_everything(seed, workers=True)
 
 
 def grad_reverse(x, scale=1.0):

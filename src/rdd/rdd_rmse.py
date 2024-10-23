@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from torch import nn, no_grad
 from tqdm.auto import tqdm
+import os
 import numpy as np
 import pandas as pd
 from src.data.mimic_iii.rdd_dataset import MIMIC3RDDRealDatasetCollection
@@ -81,7 +82,7 @@ def compute_rdd_metrics_for_seed(
     print(f"Loading test dataset for seed {seed}")
 
     dataset_collection = MIMIC3RDDRealDatasetCollection(
-        "data/processed/all_hourly_data.h5",
+        dataset_config["path"],
         min_seq_length=dataset_config["min_seq_length"],
         max_seq_length=dataset_config["max_seq_length"],
         seed=seed,
@@ -113,6 +114,8 @@ def compute_rdd_metrics_for_seed(
             model = model_class.load_from_checkpoint(model_path, map_location=device)
             if hasattr(model, "training_m_e"):
                 model.training_m_e = False
+            if hasattr(model, "training_theta"):
+                model.training_theta = True
         model = model.eval()
         model.freeze()
         model = model.to(device)

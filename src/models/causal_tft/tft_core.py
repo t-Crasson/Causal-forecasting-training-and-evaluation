@@ -19,7 +19,6 @@ class TFTBackbone(nn.Module):
         n_heads: int = 4,
         attn_dropout: float = 0.1,
         dropout: float = 0.1,
-        learning_rate: float = 0.001,
         static_embedding_sizes: list | None = None, 
         temporal_embedding_sizes: list | None = None,
         trend_size: int = 1,  # TODO rename in something like past_features_size
@@ -52,7 +51,6 @@ class TFTBackbone(nn.Module):
 
         """
         super().__init__()
-        self.learning_rate = learning_rate
         self.hidden_size = hidden_size
         self.static_features_size = static_features_size
         self.temporal_features_size = temporal_features_size
