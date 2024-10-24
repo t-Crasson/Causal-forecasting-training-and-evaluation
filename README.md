@@ -9,6 +9,7 @@ The project is built with following Python libraries:
 1. [Pytorch-Lightning](https://pytorch-lightning.readthedocs.io/en/latest/) - deep learning models
 2. [Hydra](https://hydra.cc/docs/intro/) - simplified command line arguments management
 3. [MlFlow](https://mlflow.org/) - experiments tracking
+4. [Encodec](https://github.com/facebookresearch/encodec) - causal convolution
 
 ### Installations
 First one needs to make the virtual environment and install all the requirements:
@@ -19,72 +20,43 @@ source venv/bin/activate
 pip3 install -r requirements.txt
 ```
 
-## MlFlow Setup / Connection
-To start an experiments server, run: 
+## Tasks
 
-`mlflow server --port=5000`
+There are 5 different scripts each one of them for a specific task (either training, computing metrics or computing RDD dataset). All the script are based on the main config file `config/config.yaml`. Each task then use 
+a subsection fo the config located in `configs/` folder.
 
-To access MlFLow web UI with all the experiments, connect via ssh:
+### RDD Dataset
 
-`ssh -N -f -L localhost:5000:localhost:5000 <username>@<server-link>`
+It is mandatory to first compute the RDD dataset before computing the RDD RMSE. The script associated to this task is `compute_rdd_dataset.py`. This script uses both the `dataset`section fo the config and the `rdd` section fo the config. The parameters used to reproduce the metrics are located at `config/rdd/mimic3_rdd.yaml`. You can run the script with `python compute_rdd_dataset.py`. This should create a dataset at `data/processed/rdd_dataset.parquet`.
 
-Then, one can go to local browser http://localhost:5000.
+### Model training
+There are 2 types of TFT models:
+- Baseline model is a plane deep learning architecture
+- Causal model is comopsed of 3 sub models $m_0$/$e_0$/$\Theta$
+All the code associated to those models are located at `src/models/causal_tft`
 
-## Experiments
+#### Training baseline model
 
-Main training script is universal for different models and datasets. For details on mandatory arguments - see the main configuration file `config/config.yaml` and other files in `configs/` folder.
+The baseline model can be trained using the command `python train_tft_baseline.py +model=baseline`. The parameters associated to this training are associated to the `model`'s section in the config. The parameters we used to train the model are located at `config/model/baseline.yaml`. You can train multiple seeds of the model at the same time using `python train_tft_baseline.py --multirun +model=baseline exp.seed=10,101,1001,10010,10110`. The seeds `10,101,1001,10010,10110` are the one we used for our experiments. 
 
-Generic script with logging and fixed random seed is following (with `training-type` `enc_dec`, `gnet`, `rmsn` and `multi`):
-```console
-PYTHONPATH=. CUDA_VISIBLE_DEVICES=<devices> 
-python3 runnables/train_<training-type>.py +dataset=<dataset> +backbone=<backbone> exp.seed=10 exp.logging=True
-```
+#### Training causal model
 
-### Backbones (baselines)
-One needs to choose a backbone and then fill the specific hyperparameters (they are left blank in the configs):
-- Causal Transformer (this paper): `runnables/train_multi.py  +backbone=ct`
-- Encoder-Decoder Causal Transformer (this paper): `runnables/train_enc_dec.py  +backbone=edct`
-- [Marginal Structural Models](https://pubmed.ncbi.nlm.nih.gov/10955408/) (MSMs): `runnables/train_msm.py +backbone=msm`
-- [Recurrent Marginal Structural Networks](https://papers.nips.cc/paper/2018/hash/56e6a93212e4482d99c84a639d254b67-Abstract.html) (RMSNs): `runnables/train_rmsn.py +backbone=rmsn`
-- [Counterfactual Recurrent Network](https://arxiv.org/abs/2002.04083) (CRN): `runnables/train_enc_dec.py +backbone=crn`
-- [G-Net](https://proceedings.mlr.press/v158/li21a/li21a.pdf): `runnables/train_gnet.py  +backbone=gnet`
+We propose 2 encoding for the causal model. The `one_hot` model encode the treatments using one hot encoding and the `cumulative` model uses cumulative sum. Models can respectively trained with the commands `python train_tft_causal.py --multirun +model=one_hot exp.seed=10,101,1001,10010,10110` and
+`python train_tft_causal.py --multirun +model=cumulative exp.seed=10,101,1001,10010,10110`
 
 
-Models already have best hyperparameters saved (for each model and dataset), one can access them via: `+backbone/<backbone>_hparams/cancer_sim_<balancing_objective>=<coeff_value>` or `+backbone/<backbone>_hparams/mimic3_real=diastolic_blood_pressure`.
+### Model evaluation
 
-For CT, EDCT, and CT, several adversarial balancing objectives are available:
-- counterfactual domain confusion loss (this paper): `exp.balancing=domain_confusion`
-- gradient reversal (originally in CRN, but can be used for all the methods): `exp.balancing=grad_reverse`
+Before computing the metrics, you need to fill the config with the path of the trained model in `config/rdd/mimic3_rdd.yaml` under the `metrics` section.
 
-To train a decoder (for CRN and RMSNs), use the flag `model.train_decoder=True`.
+#### Forecast metrics
 
-To perform a manual hyperparameter tuning use the flags `model.<sub_model>.tune_hparams=True`, and then see `model.<sub_model>.hparams_grid`. Use `model.<sub_model>.tune_range` to specify the number of trials for random search.
+You can compute the forecast metrics using the command `python compute_metrics.py`. This will create a json file under `data/processed/forecast_metrics.json`. This json file contain a section `paper_metrics_per_time_shift` with all the final metrics.
 
+#### RDD metrics
 
-### Datasets
-One needs to specify a dataset / dataset generator (and some additional parameters, e.g. set gamma for `cancer_sim` with `dataset.coeff=1.0`):
-- Synthetic Tumor Growth Simulator: `+dataset=cancer_sim`
-- MIMIC III Semi-synthetic Simulator (multiple treatments and outcomes): `+dataset=mimic3_synthetic`
-- MIMIC III Real-world dataset: `+dataset=mimic3_real`
+You first need to compute the RDD dataset and fill the config at `config/rdd/mimic3_rdd.yaml`. Than you can compute the RDD metrics with the command `python compute_rdd_rmse.py`. This will create a json file under `data/processed/rdd_metrics.json`. This json file contain a section `paper_metrics_per_time_shift` with all the final metrics.
 
-Before running MIMIC III experiments, place MIMIC-III-extract dataset ([all_hourly_data.h5](https://github.com/MLforHealth/MIMIC_Extract)) to `data/processed/`
+## Datasets
+Before running any task, place MIMIC-III-extract dataset ([all_hourly_data.h5](https://github.com/MLforHealth/MIMIC_Extract)) to `data/processed/`
 
-Example of running Causal Transformer on Synthetic Tumor Growth Generator with gamma = [1.0, 2.0, 3.0] and different random seeds (total of 30 subruns), using hyperparameters:
-
-```console
-PYTHONPATH=. CUDA_VISIBLE_DEVICES=<devices> 
-python3 runnables/train_multi.py -m +dataset=cancer_sim +backbone=ct +backbone/ct_hparams/cancer_sim_domain_conf=\'0\',\'1\',\'2\' exp.seed=10,101,1010,10101,101010
-```
-
-### Commands
-#### Training a TFT baseline model
-`train_tft_baseline.py --multirun +model=baseline exp.seed=10,101,1001,10010,10110`
-
-#### Training a TFT density model
-`train_tft_causal.py --multirun +model=one_hot exp.seed=10,101,1001,10010,10110`
-
-#### Training a TFT cumulative model
-`train_tft_causal.py --multirun +model=cumulative exp.seed=10,101,1001,10010,10110`
-
-
-<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>

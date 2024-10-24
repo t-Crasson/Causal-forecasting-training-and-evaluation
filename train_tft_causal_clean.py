@@ -26,9 +26,8 @@ if __name__ == "__main__":
         config = yaml.safe_load(file)["dataset"]
 
     seeds = [10, 101, 1001, 10010, 10110]
+    seeds = [10]
     for i in range(len(seeds)):
-        if i == 0:
-            continue
         torch.manual_seed(seeds[i])
         torch.cuda.manual_seed(seeds[i])
         np.random.seed(seeds[i])
@@ -88,61 +87,62 @@ if __name__ == "__main__":
         dataset_collection.process_data_multi_val()
         dataset_collection.process_data_multi_train()
 
-        logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"m_e_{MODEL_PREFIX_NAME}_{i}")
-        trainer = pl.Trainer(
-            accelerator ="gpu",
-            #strategy='ddp_find_unused_parameters_true',
-            max_epochs = 15,
-            devices = 1,
-            callbacks = checkpoint_callback,
-            logger = logger,
-            deterministic=not IS_CDF,
-            num_sanity_val_steps=0,
-        )
+        # logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,version = f"m_e_{MODEL_PREFIX_NAME}_{i}")
+        # trainer = pl.Trainer(
+        #     accelerator ="gpu",
+        #     #strategy='ddp_find_unused_parameters_true',
+        #     max_epochs = 15,
+        #     devices = 1,
+        #     callbacks = checkpoint_callback,
+        #     logger = logger,
+        #     deterministic=not IS_CDF,
+        #     num_sanity_val_steps=0,
+        # )
 
-        train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=True,batch_size=batch_size)
-        val_loader_s1 = DataLoader(dataset_collection.val_f_multi_s1, shuffle=False,batch_size=512)
-        model.training_theta = False
-        model.train()
-        trainer.fit(model,train_loader_s1,val_loader_s1)
-
-        # train_loader_s2 = DataLoader(dataset_collection.train_f_multi_s2, shuffle=True, batch_size=batch_size)
-        # val_loader_s2 = DataLoader(dataset_collection.val_f_multi_s2, batch_size=512)
-        # # del model
-
-        # path = f"{MODEL_PREFIX_PATH}/{MODEL_PREFIX_FOLDER}/m_e_{MODEL_PREFIX_NAME}_{i}/checkpoints"
-        # model = CausalTFT.load_from_checkpoint(os.path.join(path, os.listdir(path)[0])).to("cuda")
-
-        # model.weight_decay = 1e-2
-        # model.learning_rate = 1e-4
-        # # model.learning_rate = 5e-5
-
-        # model.hparams.weight_decay = model.weight_decay
-        # model.hparams.learning_rate = model.learning_rate
-        # model.training_theta = True
-        # model.save_hyperparameters()
-
+        # train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=True,batch_size=batch_size)
+        # val_loader_s1 = DataLoader(dataset_collection.val_f_multi_s1, shuffle=False,batch_size=512)
+        # model.training_theta = False
         # model.train()
-        # model.configure_optimizers()
+        # trainer.fit(model,train_loader_s1,val_loader_s1)
 
-        # # del trainer
-        # # del logger
-        # # torch.cuda.empty_cache()
-        # # gc.collect()
+        train_loader_s2 = DataLoader(dataset_collection.train_f_multi_s2, shuffle=True, batch_size=batch_size)
+        val_loader_s2 = DataLoader(dataset_collection.val_f_multi_s2, batch_size=512)
+        # del model
 
-        # checkpoint_callback = ModelCheckpoint(filename='{epoch}-{val_loss:.2f}',
-        #                                       monitor="val_loss",
-        #                                       mode="min")
-        # logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,
-        #                            version=f"theta_{MODEL_PREFIX_NAME}_{i}")
-        # trainer = pl.Trainer(accelerator="gpu",
-        #                      # strategy='ddp_find_unused_parameters_true',
-        #                      max_epochs=10,
-        #                      devices=1,
-        #                      callbacks=checkpoint_callback,
-        #                      logger=logger,
-        #                      deterministic=not IS_CDF
-        #                      )
-        # trainer.fit(model, train_loader_s2, val_loader_s2)
+        path = f"{MODEL_PREFIX_PATH}/{MODEL_PREFIX_FOLDER}/m_e_{MODEL_PREFIX_NAME}_{i}/checkpoints"
+        path = f"{MODEL_PREFIX_PATH}/{MODEL_PREFIX_FOLDER}/m_e_one_hot_{i}/checkpoints"
+        model = CausalTFT.load_from_checkpoint(os.path.join(path, os.listdir(path)[0])).to("cuda")
+
+        model.weight_decay = 1e-2
+        model.learning_rate = 1e-4
+        # model.learning_rate = 5e-5
+
+        model.hparams.weight_decay = model.weight_decay
+        model.hparams.learning_rate = model.learning_rate
+        model.training_theta = True
+        model.save_hyperparameters()
+
+        model.train()
+        model.configure_optimizers()
+
+        # del trainer
+        # del logger
+        # torch.cuda.empty_cache()
+        # gc.collect()
+
+        checkpoint_callback = ModelCheckpoint(filename='{epoch}-{val_loss:.2f}',
+                                              monitor="val_loss",
+                                              mode="min")
+        logger = TensorBoardLogger(save_dir=MODEL_PREFIX_PATH, name=MODEL_PREFIX_FOLDER,
+                                   version=f"theta_{MODEL_PREFIX_NAME}_prev_ref_test_{i}")
+        trainer = pl.Trainer(accelerator="gpu",
+                             # strategy='ddp_find_unused_parameters_true',
+                             max_epochs=10,
+                             devices=1,
+                             callbacks=checkpoint_callback,
+                             logger=logger,
+                             deterministic=not IS_CDF
+                             )
+        trainer.fit(model, train_loader_s2, val_loader_s2)
 
 

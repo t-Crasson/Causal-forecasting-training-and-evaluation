@@ -1,12 +1,11 @@
 from torch.utils.data import DataLoader
 from torch import nn, no_grad
 from tqdm.auto import tqdm
-import os
 import numpy as np
 import pandas as pd
 from src.data.mimic_iii.rdd_dataset import MIMIC3RDDRealDatasetCollection
 from typing import Any
-from src.rdd.utils import from_fully_qualified_import
+from src.evaluation.utils import load_evaluation_model
 
 def forecast_ate_values(
     test_dl: DataLoader, 
@@ -78,9 +77,8 @@ def compute_rdd_metrics_for_seed(
     time_shift: int,
     device
 ):
-    # seed_idx = SEEDS.index(seed)
-    print(f"Loading test dataset for seed {seed}")
 
+    print(f"Loading test dataset for seed {seed}")
     dataset_collection = MIMIC3RDDRealDatasetCollection(
         dataset_config["path"],
         min_seq_length=dataset_config["min_seq_length"],
@@ -104,21 +102,15 @@ def compute_rdd_metrics_for_seed(
 
     for model_name, (model_class, model_path) in tqdm(models_dict.items(), desc=f"predictions for seed {seed} time shift {time_shift}"):
         # loading model
-        is_ct_model = model_name.startswith("CT")
-        if isinstance(model_class, str):
-            model_class = from_fully_qualified_import(model_class)
-        if is_ct_model:
-            model = model_class(_seed=seed, _seed_idx=seed_idx)
-            model.hparams.dataset.projection_horizon = 1 + time_shift  
-        else:
-            model = model_class.load_from_checkpoint(model_path, map_location=device)
-            if hasattr(model, "training_m_e"):
-                model.training_m_e = False
-            if hasattr(model, "training_theta"):
-                model.training_theta = True
-        model = model.eval()
-        model.freeze()
-        model = model.to(device)
+        model = load_evaluation_model(
+            model_class=model_class,
+            model_name=model_name, 
+            seed=seed, 
+            seed_idx=seed_idx, 
+            time_shift=time_shift, 
+            model_path=model_path, 
+            device=device
+        )
 
         # creating dataloader. Always use a batchsize of 2
         test_dl = DataLoader(dataset_collection.test_f,batch_size=2, shuffle=False)
@@ -143,7 +135,7 @@ def compute_rdd_metrics_for_seed(
             on=["subject_id", "hours_in"],
             how="inner"
         )
-        print(len(seed_rdd_df))
+
         seed_rdd_df[model_name + "_delta_demand"] = (
             seed_rdd_df[model_name + "_right_predicted_demand"] 
             - seed_rdd_df[model_name + "_left_predicted_demand"]

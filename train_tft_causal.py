@@ -10,12 +10,13 @@ from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollectionCausal
 from src.models.utils import set_seed
 from src.rdd.utils import from_fully_qualified_import
 
-
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from omegaconf.errors import MissingMandatoryValue
 import logging
 from hydra.core.hydra_config import HydraConfig
+
+IS_CDF = False
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,7 +72,13 @@ def train_theta(
 ):
     set_seed(args.exp.seed)
 
+    train_loader_s2 =  DataLoader(dataset_collection.train_f_multi_s2, shuffle=True, batch_size=args.dataset.batch_size)
+    val_loader_s2 = DataLoader(dataset_collection.val_f_multi_s2, shuffle=False,batch_size=512)
+
+    model_kwargs = dict(args.model.params)
+    model_kwargs["treatment_module_class"] = from_fully_qualified_import(args.model.params.treatment_module_class)
     model_class = from_fully_qualified_import(args.model._target_)
+    model = model_class(**model_kwargs)
     m_e_model_path = os.path.join(args.model.destination_directory, f"m_e_{args.model.name}_{seed_idx}", "checkpoints")
     model = model_class.load_from_checkpoint(os.path.join(m_e_model_path, os.listdir(m_e_model_path)[0])).to("cuda")
 
@@ -101,9 +108,6 @@ def train_theta(
         deterministic=args.exp.deterministic,
     )
 
-    train_loader_s2 =  DataLoader(dataset_collection.train_f_multi_s2, shuffle=True, batch_size=args.dataset.batch_size)
-    val_loader_s2 = DataLoader(dataset_collection.val_f_multi_s2, shuffle=False,batch_size=512)
-
     trainer.fit(model, train_loader_s2, val_loader_s2)
 
 
@@ -114,6 +118,15 @@ def main(args: DictConfig):
     OmegaConf.register_new_resolver("sum", lambda *args: sum(list(args)), replace=True)
     OmegaConf.register_new_resolver("len", len, replace=True)
     logger.info('\n' + OmegaConf.to_yaml(args, resolve=True))
+
+    set_seed(args.exp.seed)
+
+    splitted_directory = args.model.destination_directory.split(os.path.sep)
+    try:
+        seed_idx = HydraConfig.get().job.num
+    except MissingMandatoryValue:
+        seed_idx = 0
+
 
     dataset_collection = MIMIC3RealDatasetCollectionCausal(
         args.dataset.path,
@@ -134,14 +147,8 @@ def main(args: DictConfig):
     dataset_collection.process_data_multi_val()
     dataset_collection.process_data_multi_train()
 
-    splitted_directory = args.model.destination_directory.split(os.path.sep)
-    try:
-        seed_idx = HydraConfig.get().job.num
-    except MissingMandatoryValue:
-        seed_idx = 0
-    
-    logger.info("Training m0/e0")
-    train_m0(args, dataset_collection, splitted_directory, seed_idx)
+    # logger.info("Training m0/e0")
+    # train_m0(args, dataset_collection, splitted_directory, seed_idx)
     logger.info("Training theta")
     train_theta(args, dataset_collection, splitted_directory, seed_idx)
 

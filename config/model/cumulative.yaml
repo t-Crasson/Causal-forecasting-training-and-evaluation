@@ -9,7 +9,7 @@ model:
     attn_dropout: 0.1
     dropout: 0.1
   theta_params:
-    weight_decay: 1e-5
+    weight_decay: 1e-2
     learning_rate: 1e-4
 exp:
   max_epochs: 15
