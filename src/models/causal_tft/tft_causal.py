@@ -1,18 +1,17 @@
-from typing import TypeVar, Generic
+from typing import Generic, TypeVar
 
+import torch
+from torch import Tensor
 from torch.nn import functional as F
 
 from src.models.causal_tft.tft_baseline import TFTBaseline
-
 from src.models.causal_tft.tft_core import TFTBackbone
 from src.models.causal_tft.treatment_encoder import AbstractTreatmentModule
-from torch import Tensor
-import torch
 
 T = TypeVar("T", bound=AbstractTreatmentModule)
 
-class CausalTFT(TFTBaseline, Generic[T]):
 
+class CausalTFT(TFTBaseline, Generic[T]):
     def __init__(
         self,
         treatment_module_class: type[T],
@@ -70,7 +69,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
             e0_backbone=TFTBackbone(**backbone_kwargs),
             treatment_max_value=treatment_max_value,
             hidden_size=hidden_size,
-            last_nn=last_nn
+            last_nn=last_nn,
         )
 
         self.configure_optimizers()
@@ -105,13 +104,15 @@ class CausalTFT(TFTBaseline, Generic[T]):
 
         return m0, e0, theta
 
-    def format_batch_window(self, batch: dict[str, Tensor]) -> tuple[dict[str, Tensor], Tensor, Tensor, Tensor, Tensor]:
+    def format_batch_window(
+        self, batch: dict[str, Tensor]
+    ) -> tuple[dict[str, Tensor], Tensor, Tensor, Tensor, Tensor]:
         windows_batch, taus, y, active_entries, _ = super().format_batch_window(batch)
         # Setting the treatment tensor and removing the treatments from the temporal features
         temporal = windows_batch["multivariate_exog"]
         treatments = torch.zeros_like(y)
         for k in range(self.treatment_module.treatment_max_value):
-            treatments += temporal[:,:,-1-k].clone().unsqueeze(-1)*(2**k)
+            treatments += temporal[:, :, -1 - k].clone().unsqueeze(-1) * (2**k)
             for i, tau in enumerate(taus):
                 temporal[i, tau:, -1 - k] = -1
         windows_batch["multivariate_exog"] = temporal
@@ -119,10 +120,14 @@ class CausalTFT(TFTBaseline, Generic[T]):
 
         return windows_batch, taus, y, active_entries, treatments
 
-    def orthogonal_forecast(self, m0: Tensor, e0: Tensor, theta: Tensor, treatments: Tensor):
+    def orthogonal_forecast(
+        self, m0: Tensor, e0: Tensor, theta: Tensor, treatments: Tensor
+    ):
         encoded_treatment = self.treatment_module.encode_treatments(treatments)
         # TODO replace with tretment format as a single value
-        shift = torch.matmul((encoded_treatment - e0).unsqueeze(-2), theta.unsqueeze(-1)).squeeze(-1)
+        shift = torch.matmul(
+            (encoded_treatment - e0).unsqueeze(-2), theta.unsqueeze(-1)
+        ).squeeze(-1)
         y_orthogonal = m0 + shift
         return y_orthogonal
 
@@ -132,12 +137,20 @@ class CausalTFT(TFTBaseline, Generic[T]):
         return self.orthogonal_forecast(m0, e0, theta, treatments)
 
     def loss(
-        self, y: Tensor, treatment: Tensor, m0: Tensor, e0: Tensor, theta: Tensor, active_entries: Tensor
+        self,
+        y: Tensor,
+        treatment: Tensor,
+        m0: Tensor,
+        e0: Tensor,
+        theta: Tensor,
+        active_entries: Tensor,
     ) -> tuple[Tensor, ...]:
         ##Process data to compute the losses
         loss_reg = self.loss_m0(y, m0, active_entries)
         loss_e0 = self.loss_e0(treatment, e0, active_entries)
-        loss_orthogonal = self.loss_orthogonal(y, treatment, m0, e0, theta, active_entries)
+        loss_orthogonal = self.loss_orthogonal(
+            y, treatment, m0, e0, theta, active_entries
+        )
         return loss_reg, loss_e0, loss_orthogonal
 
     def loss_m0(self, y: Tensor, m0: Tensor, active_entries: Tensor) -> Tensor:
@@ -150,7 +163,13 @@ class CausalTFT(TFTBaseline, Generic[T]):
         return (loss * active_entries.flatten()).sum() / active_entries.sum()
 
     def loss_orthogonal(
-        self, y: Tensor, treatments: Tensor, m0: Tensor, e0: Tensor, theta: Tensor, active_entries: Tensor
+        self,
+        y: Tensor,
+        treatments: Tensor,
+        m0: Tensor,
+        e0: Tensor,
+        theta: Tensor,
+        active_entries: Tensor,
     ) -> Tensor:
         y_orthogonal = self.orthogonal_forecast(m0, e0, theta, treatments)
         mse = F.mse_loss(y, y_orthogonal, reduction="none")
@@ -158,13 +177,19 @@ class CausalTFT(TFTBaseline, Generic[T]):
         return loss
 
     def training_step(self, batch: dict[str, Tensor], batch_idx: int) -> Tensor:
-        windows_batch, taus, y, active_entries, treatments = self.format_batch_window(batch)
+        windows_batch, taus, y, active_entries, treatments = self.format_batch_window(
+            batch
+        )
         m0, e0, theta = self.forward(windows_batch, taus)
-        loss_reg, loss_e0, loss_orthogonal = self.loss(y, treatments, m0, e0, theta, active_entries)
+        loss_reg, loss_e0, loss_orthogonal = self.loss(
+            y, treatments, m0, e0, theta, active_entries
+        )
 
         self.log("train_loss_reg_m_0", loss_reg, on_epoch=True, sync_dist=True)
         self.log("train_loss_e_0", loss_e0, on_epoch=True, sync_dist=True)
-        self.log("train_orthogonal_loss", loss_orthogonal, on_epoch=True, sync_dist=True)
+        self.log(
+            "train_orthogonal_loss", loss_orthogonal, on_epoch=True, sync_dist=True
+        )
 
         if self.using_theta:
             loss = loss_orthogonal
@@ -175,9 +200,13 @@ class CausalTFT(TFTBaseline, Generic[T]):
         return loss
 
     def validation_step(self, batch: dict[str, Tensor], batch_idx: int) -> None:
-        windows_batch, taus, y, active_entries, treatments = self.format_batch_window(batch)
+        windows_batch, taus, y, active_entries, treatments = self.format_batch_window(
+            batch
+        )
         m0, e0, theta = self.forward(windows_batch, taus)
-        loss_reg, loss_e0, loss_orthogonal = self.loss(y, treatments, m0, e0, theta, active_entries)
+        loss_reg, loss_e0, loss_orthogonal = self.loss(
+            y, treatments, m0, e0, theta, active_entries
+        )
 
         self.log("val_loss_reg_m_0", loss_reg, on_epoch=True, sync_dist=True)
         self.log("val_loss_e_0", loss_e0, on_epoch=True, sync_dist=True)
@@ -191,9 +220,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
 
     def configure_optimizers(self):
         # Required by torch lightning
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
+        self.optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay
+        )
         return self.optimizer
-
-
-
-

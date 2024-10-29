@@ -1,8 +1,7 @@
-from torch import nn
-from torch import Tensor
-from torch.nn import functional as F
 import pytorch_lightning as pl
 import torch
+from torch import Tensor, nn
+from torch.nn import functional as F
 
 from src.models.causal_tft.tft_core import TFTBackbone
 from src.models.causal_tft.utils import create_sequential_layers
@@ -22,23 +21,23 @@ class TFTBaseline(TFTBackbone, pl.LightningModule):
         attn_dropout: float = 0.1,
         dropout: float = 0.1,
         learning_rate: float = 0.001,
-        static_embedding_sizes: list | None = None, 
+        static_embedding_sizes: list | None = None,
         temporal_embedding_sizes: list | None = None,
         trend_size: int = 1,  # TODO rename in something like past_features_size
         n_static_layers: int = 2,
         n_att_layers: int = 4,
         conv_padding_size: int = 128,
         conv_blocks: int = 2,
-        kernel_size: int = 7
+        kernel_size: int = 7,
     ):
-        """This class is an abstract class. It contains the key components of a TFT. It is also a pytorch lightning module, this 
+        """This class is an abstract class. It contains the key components of a TFT. It is also a pytorch lightning module, this
         framework of pytorch used to quickly train the models. This class is used as a parent of every model we work on.
 
         Args:
             projection_length (int): Number of time steps to forecast at once
             horizon (int): Horizon of the prediction, how many days we want to predict at most.
             static_features_size (int): Number of features in the static metadata. This number should include the legnth of temporal_embedding_sizes
-            temporal_features_size (int): Number of temporal features. This number should include the length of temporal_embedding_sizes. This number does not include 
+            temporal_features_size (int): Number of temporal features. This number should include the length of temporal_embedding_sizes. This number does not include
             the trend size
             Temporal features are used both before and after the prediction time step
             target_size (int): Number of head at the end of the network. Defaults to 1.
@@ -83,7 +82,9 @@ class TFTBaseline(TFTBackbone, pl.LightningModule):
         self.configure_optimizers()
         self.save_hyperparameters()
 
-    def format_batch_window(self, batch: dict[str, Tensor]) -> tuple[dict[str, Tensor], Tensor, Tensor, Tensor, Tensor]:
+    def format_batch_window(
+        self, batch: dict[str, Tensor]
+    ) -> tuple[dict[str, Tensor], Tensor, Tensor, Tensor, Tensor]:
         """
         Format the window that should be sent to a TFT model
         The window is composed of:
@@ -106,7 +107,7 @@ class TFTBaseline(TFTBackbone, pl.LightningModule):
         taus = batch["future_past_split"].int()
         for i, tau in enumerate(taus):
             li_insample_y[i, tau:] = 0
-            active_entries[i, tau:tau + self.projection_length] = 1
+            active_entries[i, tau : tau + self.projection_length] = 1
             vitals[i, tau:] = 0
 
         temporal = torch.concat([vitals, position, treatments], dim=-1)
@@ -155,4 +156,3 @@ class TFTBaseline(TFTBackbone, pl.LightningModule):
         # Required by torch lightning
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         return self.optimizer
-        

@@ -4,7 +4,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 from src.rdd.rdd import compute_rdd_values_n_jobs
-from src.rdd.utils import load_mimic_raw_data, encode_treatments
+from src.rdd.utils import encode_treatments, load_mimic_raw_data
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,12 +21,12 @@ def main(args: DictConfig):
 
     # Non-strict access to fields
     OmegaConf.set_struct(args, False)
-    logger.info('\n' + OmegaConf.to_yaml(args, resolve=True))
+    logger.info("\n" + OmegaConf.to_yaml(args, resolve=True))
 
     # Format a dataframe from the raw data
     logger.info("Reading and formatting dataframe")
     df = load_mimic_raw_data(dataset_config=dict(args.dataset))
-    df.dropna(inplace=True) # We dion
+    df.dropna(inplace=True)  # We dion
     df = encode_treatments(df=df, treatment_column=args.rdd.treatment_column)
 
     # Compute the RDD dataset

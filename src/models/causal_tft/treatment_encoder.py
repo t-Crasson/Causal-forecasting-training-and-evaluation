@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from torch import nn
-from torch import Tensor
+
 import torch
+from torch import Tensor, nn
 from torch.nn import functional as F
 
 from src.models.causal_tft.tft_core import TFTBackbone
@@ -21,8 +21,12 @@ class AbstractTreatmentModule(nn.Module, ABC):
         self.theta_backbone = theta_backbone
         self.e0_backbone = e0_backbone
         self.treatment_max_value = treatment_max_value
-        self.theta_head = create_sequential_layers(last_nn, hidden_size, 2 ** treatment_max_value)
-        self.e0_head = create_sequential_layers(last_nn, hidden_size, 2 ** treatment_max_value)
+        self.theta_head = create_sequential_layers(
+            last_nn, hidden_size, 2**treatment_max_value
+        )
+        self.e0_head = create_sequential_layers(
+            last_nn, hidden_size, 2**treatment_max_value
+        )
 
         # This flag is used to know if we are training theta or m0/e0
         self.using_theta = False
@@ -32,20 +36,27 @@ class AbstractTreatmentModule(nn.Module, ABC):
         if self.training:
             if self.using_theta:
                 with torch.no_grad():
-                    e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
+                    e0 = self.encode_e0_values(
+                        self.e0_head(self.e0_backbone.get_z(windows_batch, tau))
+                    )
                 theta = self.theta_head(self.theta_backbone.get_z(windows_batch, tau))
             else:
-                e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
+                e0 = self.encode_e0_values(
+                    self.e0_head(self.e0_backbone.get_z(windows_batch, tau))
+                )
                 with torch.no_grad():
                     theta = torch.ones_like(e0)
         else:
             with torch.no_grad():
-                e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
+                e0 = self.encode_e0_values(
+                    self.e0_head(self.e0_backbone.get_z(windows_batch, tau))
+                )
                 if self.using_theta:
-                    theta = self.theta_head(self.theta_backbone.get_z(windows_batch, tau))
+                    theta = self.theta_head(
+                        self.theta_backbone.get_z(windows_batch, tau)
+                    )
                 else:
                     theta = torch.ones_like(e0)
-
 
         return e0, theta
 
@@ -62,7 +73,6 @@ class AbstractTreatmentModule(nn.Module, ABC):
 
 
 class OneHotTreatmentModule(AbstractTreatmentModule):
-
     def __init__(
         self,
         theta_backbone: TFTBackbone,
@@ -71,14 +81,18 @@ class OneHotTreatmentModule(AbstractTreatmentModule):
         hidden_size: int,
         last_nn: list[int],
     ):
-        super().__init__(theta_backbone, e0_backbone, treatment_max_value, hidden_size, last_nn)
+        super().__init__(
+            theta_backbone, e0_backbone, treatment_max_value, hidden_size, last_nn
+        )
         self.classification_loss = nn.functional.cross_entropy
         self.e0_norm_function = nn.Softmax(dim=2)
 
     def encode_treatments(self, treatments: Tensor):
 
         encoded_treatments = treatments[:, :, 0].long()
-        encoded_treatments = F.one_hot(encoded_treatments, 2 ** self.treatment_max_value).float()
+        encoded_treatments = F.one_hot(
+            encoded_treatments, 2**self.treatment_max_value
+        ).float()
 
         return encoded_treatments
 
@@ -90,9 +104,9 @@ class OneHotTreatmentModule(AbstractTreatmentModule):
 
     def loss_e0(self, treatment: Tensor, e0: Tensor):
         return self.classification_loss(
-            e0.reshape(-1, 2 ** self.treatment_max_value),
+            e0.reshape(-1, 2**self.treatment_max_value),
             treatment.flatten().long(),
-            reduction="none"
+            reduction="none",
         )
 
 
@@ -105,14 +119,18 @@ class CumulativeTreatmentModule(AbstractTreatmentModule):
         hidden_size: int,
         last_nn: list[int],
     ):
-        super().__init__(theta_backbone, e0_backbone, treatment_max_value, hidden_size, last_nn)
+        super().__init__(
+            theta_backbone, e0_backbone, treatment_max_value, hidden_size, last_nn
+        )
         self.classification_loss = nn.functional.binary_cross_entropy
         self.eps = 1e-7
         self.e0_norm_function = nn.Softmax(dim=2)
 
     def encode_treatments(self, treatments: Tensor):
         encoded_treatments = treatments[:, :, 0].long()
-        encoded_treatments = F.one_hot(encoded_treatments, 2 ** self.treatment_max_value).float()
+        encoded_treatments = F.one_hot(
+            encoded_treatments, 2**self.treatment_max_value
+        ).float()
         encoded_treatments = 1 - torch.cumsum(encoded_treatments, dim=-1)
 
         return encoded_treatments
@@ -127,7 +145,7 @@ class CumulativeTreatmentModule(AbstractTreatmentModule):
 
     def loss_e0(self, treatment: Tensor, e0: Tensor):
         encoded_treatments = self.encode_treatments(treatment)
-        loss = torch.sum(self.classification_loss(e0, encoded_treatments, reduction="none"), dim=-1)
+        loss = torch.sum(
+            self.classification_loss(e0, encoded_treatments, reduction="none"), dim=-1
+        )
         return loss.flatten()
-
-

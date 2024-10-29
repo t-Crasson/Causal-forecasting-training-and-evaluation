@@ -27,7 +27,9 @@ class AbstractRddModel:
         raise NotImplementedError
 
     @abstractmethod
-    def predict(self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]) -> list[float]:
+    def predict(
+        self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]
+    ) -> list[float]:
         raise NotImplementedError
 
     @abstractmethod
@@ -39,14 +41,16 @@ class SingleLinearRddModel(AbstractRddModel):
     def __init__(
         self,
         kernel_bandwidth: int = 5,
-        kernel_shape: Literal["rectangular", "triangle"] = "rectangular"
+        kernel_shape: Literal["rectangular", "triangle"] = "rectangular",
     ) -> None:
         super().__init__()
         self.kernel_bandwidth = kernel_bandwidth
         self.kernel_shape = kernel_shape
         self._switching_time_step = 0
 
-    def compute_sample_weights(self, time_step_values: np.ndarray, prediction_time_step: int) -> np.ndarray | None:
+    def compute_sample_weights(
+        self, time_step_values: np.ndarray, prediction_time_step: int
+    ) -> np.ndarray | None:
         sample_weights = None
         if len(time_step_values) > 0:
             sample_weights = (
@@ -54,7 +58,11 @@ class SingleLinearRddModel(AbstractRddModel):
             ).astype(float)
 
             if self.kernel_shape == "triangle":
-                sample_weights *= (1 - np.abs(time_step_values - prediction_time_step) / self.kernel_bandwidth)
+                sample_weights *= (
+                    1
+                    - np.abs(time_step_values - prediction_time_step)
+                    / self.kernel_bandwidth
+                )
 
         return sample_weights
 
@@ -65,7 +73,9 @@ class SingleLinearRddModel(AbstractRddModel):
         features_df = pd.DataFrame(
             {
                 "time_step": time_step_values,  # this feature is used to estimate the slope of the left part
-                "right_price_indicator": (time_step_values > 0).astype(int),  # this feature is used to estimate
+                "right_price_indicator": (time_step_values > 0).astype(
+                    int
+                ),  # this feature is used to estimate
                 # the intercept of right part.
             }
         )
@@ -94,11 +104,15 @@ class SingleLinearRddModel(AbstractRddModel):
             f"@left_time_step_min <= {time_step_column} <= @right_time_step_max"
         ).index.values
 
-        model_time_step_values = sorted_single_series_df.loc[single_series_df_fit_indexes, time_step_column].values
+        model_time_step_values = sorted_single_series_df.loc[
+            single_series_df_fit_indexes, time_step_column
+        ].values
 
         # compute sample weights
         sample_weights = self.compute_sample_weights(
-            time_step_values=model_time_step_values[model_time_step_values != self._switching_time_step],
+            time_step_values=model_time_step_values[
+                model_time_step_values != self._switching_time_step
+            ],
             prediction_time_step=self._switching_time_step,
         )
         if sample_weights is not None and sample_weights.max() == 0:
@@ -117,11 +131,15 @@ class SingleLinearRddModel(AbstractRddModel):
 
         return self
 
-    def predict(self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]) -> list[float]:
+    def predict(
+        self, sorted_single_series_df: pd.DataFrame, time_steps: list[int]
+    ) -> list[float]:
         if self.model is None:
             raise Exception("Can't predict if the model is not fitted")
 
-        return self.model.predict(self.generate_features(time_step_values=time_steps)).tolist()
+        return self.model.predict(
+            self.generate_features(time_step_values=time_steps)
+        ).tolist()
 
     def estimate_cate(self) -> float:
         return self.model.coef_[1]

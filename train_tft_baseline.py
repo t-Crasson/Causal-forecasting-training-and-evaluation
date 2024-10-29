@@ -1,20 +1,19 @@
+import logging
+import os
+
+import hydra
 import pytorch_lightning as pl
+from hydra.core.hydra_config import HydraConfig
+from omegaconf import DictConfig, OmegaConf
+from omegaconf.errors import MissingMandatoryValue
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
-import os
 
 from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollection
 from src.data.mimic_iii.tft_dataset import MIMIC3TFTRealDataset
 from src.models.utils import set_seed
 from src.rdd.utils import from_fully_qualified_import
-
-
-import hydra
-from omegaconf import DictConfig, OmegaConf
-from omegaconf.errors import MissingMandatoryValue
-import logging
-from hydra.core.hydra_config import HydraConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,14 +25,12 @@ def main(args: DictConfig):
     OmegaConf.set_struct(args, False)
     OmegaConf.register_new_resolver("sum", lambda *args: sum(list(args)), replace=True)
     OmegaConf.register_new_resolver("len", len, replace=True)
-    logger.info('\n' + OmegaConf.to_yaml(args, resolve=True))
+    logger.info("\n" + OmegaConf.to_yaml(args, resolve=True))
 
     set_seed(args.exp.seed)
 
     checkpoint_callback = ModelCheckpoint(
-        filename='{epoch}-{val_loss:.2f}',
-        monitor = "val_loss",
-        mode="min"
+        filename="{epoch}-{val_loss:.2f}", monitor="val_loss", mode="min"
     )
     model_class = from_fully_qualified_import(args.model._target_)
     model = model_class(**dict(args.model.params))
@@ -51,7 +48,7 @@ def main(args: DictConfig):
         vitals=args.dataset.vital_list,
         treatment_list=args.dataset.treatment_list,
         static_list=args.dataset.static_list,
-        dataset_class=MIMIC3TFTRealDataset
+        dataset_class=MIMIC3TFTRealDataset,
     )
 
     dataset_collection.process_data_multi_val()
@@ -68,17 +65,21 @@ def main(args: DictConfig):
         devices=args.exp.gpus,
         callbacks=checkpoint_callback,
         logger=TensorBoardLogger(
-            save_dir=os.path.sep.join(splitted_directory[:-1]), 
+            save_dir=os.path.sep.join(splitted_directory[:-1]),
             name=splitted_directory[-1],
-            version=f"{args.model.name}_{seed_idx}"
+            version=f"{args.model.name}_{seed_idx}",
         ),
         deterministic=args.exp.deterministic,
     )
 
-    train_loader = DataLoader(dataset_collection.train_f_multi, shuffle=True, batch_size=args.dataset.batch_size)
+    train_loader = DataLoader(
+        dataset_collection.train_f_multi,
+        shuffle=True,
+        batch_size=args.dataset.batch_size,
+    )
     val_loader = DataLoader(dataset_collection.val_f_multi, batch_size=512)
-    trainer.fit(model,train_loader,val_loader)
+    trainer.fit(model, train_loader, val_loader)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

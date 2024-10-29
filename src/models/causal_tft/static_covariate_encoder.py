@@ -1,6 +1,8 @@
-from src.models.causal_tft.utils import VariableSelectionNetwork
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.nn import functional as F
+
+from src.models.causal_tft.utils import VariableSelectionNetwork
+
 
 class StaticCovariateEncoder(nn.Module):
     def __init__(self, hidden_size, num_static_vars, dropout, n_layers):
@@ -14,18 +16,16 @@ class StaticCovariateEncoder(nn.Module):
         """
         super().__init__()
         self.vsn = VariableSelectionNetwork(
-            hidden_size=hidden_size, 
-            num_inputs=num_static_vars, 
+            hidden_size=hidden_size,
+            num_inputs=num_static_vars,
             dropout=dropout,
-            n_layers=n_layers
+            n_layers=n_layers,
         )
         self.context_grns = GRN(
-            input_size=hidden_size, 
-            hidden_size=hidden_size, 
-            dropout=dropout
+            input_size=hidden_size, hidden_size=hidden_size, dropout=dropout
         )
         self.drop_rate = dropout
-    
+
     def forward(self, x: Tensor):
         variable_ctx = self.vsn(x)
         context_static = self.context_grns(variable_ctx)
@@ -62,7 +62,7 @@ class GRN(nn.Module):
         hidden_size: int,
         output_size: int | None = None,
         context_hidden_size: int | None = None,
-        dropout: float= 0.,
+        dropout: float = 0.0,
         eps: float = 1e-3,
     ):
         super().__init__()
