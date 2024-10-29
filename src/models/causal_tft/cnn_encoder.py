@@ -25,7 +25,7 @@ class CausalCNNEncoder(nn.Module):
         Causal CNN encoder to encode temporal data
 
         Args:
-            hidden_size (_type_): size of the hidden layers
+            hidden_size (int): size of the hidden layers
             temporal_features_size (int): Number of temporal features
             horizon (int): size of the horizon to forecast
             n_heads (int): number of heads in the attention mechanism
@@ -86,7 +86,7 @@ class CausalCNNEncoder(nn.Module):
         static_features: Tensor,
         tau: Tensor | None = None,
     ) -> list[Tensor]:
-        """_summary_
+        """
 
         Args:
             temporal_features (Tensor): Temporal data, shape (batch_size, temporal length,
@@ -95,9 +95,6 @@ class CausalCNNEncoder(nn.Module):
             (batch_size, hidden_size)
             tau (Tensor, optional): Time step up until we know the time series. Defaults to None. Argument
             should be one dimensional int
-
-        Returns:
-            _type_: _description_
         """
         # We apply a first features selection to the features known for the whole time series
         x = self.temporal_vsn(temporal_features[:, :, : -self.trend_size])

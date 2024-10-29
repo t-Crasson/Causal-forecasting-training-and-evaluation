@@ -1,5 +1,4 @@
 from collections.abc import Generator
-from typing import Any
 
 import joblib
 import pandas as pd
@@ -46,8 +45,6 @@ def rdd_indexes_iterator(
     the first time step and last time step index from the sorted single time series dataframe.
     The generator also skips switching time step where we don't have enough values to estimate the
     treatment effect using RDD.
-
-    :param sorted_single_series_df: column representing a unique value per treatment
     """
     for sequence_index, (time_step_min_index, time_step_max_index) in enumerate(
         constant_treatments_indexes[:-1]
@@ -160,7 +157,6 @@ def compute_time_series_rdd_values(
         prediction_index,
     ) in rdd_indexes_iterator(
         constant_treatments_indexes=constant_treatments_indexes,
-        treatment_column=treatment_column,
     ):
         # fit the rdd model on left and right time steps then do the prediction
         # for both the left treatment and right treatment at the prediction time step

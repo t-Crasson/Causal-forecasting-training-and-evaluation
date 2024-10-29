@@ -5,14 +5,16 @@ from src.models.causal_tft.utils import VariableSelectionNetwork
 
 
 class StaticCovariateEncoder(nn.Module):
-    def __init__(self, hidden_size, num_static_vars, dropout, n_layers):
+    def __init__(
+        self, hidden_size: int, num_static_vars: int, dropout: float, n_layers: int
+    ):
         """This class is the encoder of the static features
 
         Args:
             hidden_size (int): hidden size of the mode
             num_static_vars (int): Number of static features in the model
-            dropout (_type_): _description_
-            n_layers (_type_): _description_
+            dropout (float): dropout in the hidden layers encoding static features
+            n_layers (int): number of layers for encoding static features
         """
         super().__init__()
         self.vsn = VariableSelectionNetwork(

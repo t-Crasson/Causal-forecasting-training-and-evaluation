@@ -23,18 +23,15 @@ class CNNDecoder(nn.Module):
         This class gathers the transformer bottleneck of the model and the CNN encoder
 
         Args:
-            hidden_size (_type_): size of the hidden layers
-            temporal_features_size (int): Number of temporal features
-            horizon (int): size of the horizon to forecast
             n_heads (int): number of heads in the attention mechanism
+            hidden_size (int): size of the hidden layers
+            horizon (int): size of the horizon to forecast
+            attn_dropout (float): dropout rate in the attention mechanism
             dropout (float): dropout rate in the network layers
+            n_att_layers (int): number of layers in the attention mechanism
             padding_length (int): length of the input channels sent to the convolution. If the horizon
             of the time series is lower than the padding_length we use zero padding to adapt the size
-            TODO: find a better name for padding parameter
-            trend_size (int): TODO: complete the doc
             n_blocks (int): number of EncoderBlock
-            n_att_layers (int): number of layers in the attention mechanism
-            attn_dropout (float): dropout rate in the attention mechanism
             kernel_size (int): size of the kernel in the convolution
 
         """
@@ -75,13 +72,6 @@ class CNNDecoder(nn.Module):
         self.li_up = nn.ModuleList(li_up)
 
     def forward(self, temporal_features: Tensor, static_features: Tensor):
-        """_summary_
-
-        Args:
-            temporal_features (list): List of tensor for the skip connection
-            TODO: add doc for static_features
-        """
-
         # Temporal self attention
         enriched = temporal_features[-1]
         x = self.attention(enriched)
