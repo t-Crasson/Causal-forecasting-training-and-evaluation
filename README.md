@@ -8,17 +8,19 @@ This repository is a fork from the [CausalTransformer](https://github.com/Valent
 The project is built with following Python libraries:
 1. [Pytorch-Lightning](https://pytorch-lightning.readthedocs.io/en/latest/) - deep learning models
 2. [Hydra](https://hydra.cc/docs/intro/) - simplified command line arguments management
-3. [MlFlow](https://mlflow.org/) - experiments tracking
-4. [Encodec](https://github.com/facebookresearch/encodec) - causal convolution
+3. [Encodec](https://github.com/facebookresearch/encodec) - causal convolution
 
 ### Installations
-First one needs to make the virtual environment and install all the requirements:
+First one needs to create a Python 3.11 virtual environment and install all the requirements:
 ```console
 pip3 install virtualenv
 python3 -m virtualenv -p python3 --always-copy venv
 source venv/bin/activate
 pip3 install -r requirements.txt
 ```
+
+As the causal transformer repository uses lower version of Pytorch-Lightning, we also created an other 
+virtual environment to train the CT model using Python 3.9 and the requirements defined in `requirements-ct.txt`.
 
 ## Tasks
 
@@ -43,6 +45,10 @@ The baseline model can be trained using the command `python train_tft_baseline.p
 
 We propose 2 encoding for the causal model. The `one_hot` model encode the treatments using one hot encoding and the `cumulative` model uses cumulative sum. Models can respectively trained with the commands `python train_tft_causal.py --multirun +model=one_hot exp.seed=10,101,1001,10010,10110` and
 `python train_tft_causal.py --multirun +model=cumulative exp.seed=10,101,1001,10010,10110`
+
+#### Training CT model
+
+In order to compare our model we decided to train a Causal Transformer model aswell. Based on the original repository, you can train a CT model using the command `python train_multi.py --multirun +backbone=ct +backbone/ct_hparams/mimic3_real=diastolic_blood_pressure +dataset=mimic3_real exp.seed=10,101,1001,10010,10110`. The model checkpoints should be saved under the multirun folder.
 
 
 ### Model evaluation

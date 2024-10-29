@@ -38,5 +38,7 @@ defaults:
   - _self_
   - rdd/mimic3_rdd.yaml
   - dataset/mimic3_real.yaml
-#  - override hydra/hydra_logging: colorlog
-#  - override hydra/job_logging: colorlog
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+  # - override hydra/hydra_logging: colorlog
+  # - override hydra/job_logging: colorlog

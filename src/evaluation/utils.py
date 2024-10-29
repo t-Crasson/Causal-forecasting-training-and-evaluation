@@ -121,6 +121,7 @@ def load_ct_model(
     )["state_dict"])
 
     multimodel_trainer = Trainer(
+        devices=args.exp.gpus,
         max_epochs=args.exp.max_epochs,
         gradient_clip_val=args.model.multi.max_grad_norm
     )
@@ -136,7 +137,6 @@ def format_models_dict(
     dataset_config: dict[str, Any], 
     device: torch.device,  
     seeds: list[int], 
-    tft_models_prefix_pax: str,
     tft_models_definition: dict | None = None, 
     ct_models_path: str | None = None
 ) -> dict[int, dict[str, tuple[Any, str] | tuple[Any, None]]]:
@@ -146,8 +146,7 @@ def format_models_dict(
             for seed_idx, seed in enumerate(seeds):
                 models_dict_per_seed.setdefault(seed, {})[f"{model_name_prefix}_{seed_idx}"] = (
                     model_class,
-                    glob(os.path.join(
-                        tft_models_prefix_pax, 
+                    glob(os.path.join( 
                         f"{folder_name_prefix}_{seed_idx}", 
                         "checkpoints/*.ckpt"
                     ))[-1],
@@ -182,10 +181,8 @@ def load_evaluation_model(
         model.hparams.dataset.projection_horizon = 1 + time_shift  
     else:
         model = model_class.load_from_checkpoint(model_path, map_location=device)
-        if hasattr(model, "training_m_e"): # TODO: remove this line
-            model.training_m_e = False
-        if hasattr(model, "training_theta"):
-            model.training_theta = True
+        if hasattr(model, "using_theta"):
+            model.using_theta = True
     model = model.eval()
     model.freeze()
     model = model.to(device)

@@ -1,10 +1,11 @@
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import os
 
 from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollection
+from src.data.mimic_iii.tft_dataset import MIMIC3TFTRealDataset
 from src.models.utils import set_seed
 from src.rdd.utils import from_fully_qualified_import
 
@@ -49,7 +50,8 @@ def main(args: DictConfig):
         outcome_list=args.dataset.outcome_list,
         vitals=args.dataset.vital_list,
         treatment_list=args.dataset.treatment_list,
-        static_list=args.dataset.static_list
+        static_list=args.dataset.static_list,
+        dataset_class=MIMIC3TFTRealDataset
     )
 
     dataset_collection.process_data_multi_val()

@@ -3,10 +3,11 @@ import hydra
 import torch
 from omegaconf import DictConfig, OmegaConf
 from hydra.utils import instantiate
+from src.models.utils import set_seed
 from torch.utils.data import DataLoader
 from pytorch_lightning import Trainer
-from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor
+from hydra.core.hydra_config import HydraConfig
 
 from src.models.utils import AlphaRise, FilteringMlFlowLogger
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 torch.set_default_dtype(torch.double)
 
 
-@hydra.main(config_name=f'config.yaml', config_path='./config/')
+@hydra.main(config_name=f'config.yaml', config_path='./config/', version_base="1.3.2")
 def main(args: DictConfig):
     """
     Training / evaluation script for CT (Causal Transformer)
@@ -32,7 +33,7 @@ def main(args: DictConfig):
     logger.info('\n' + OmegaConf.to_yaml(args, resolve=True))
 
     # Initialisation of data
-    seed_everything(args.exp.seed)
+    set_seed(args.exp.seed)
     dataset_collection = instantiate(args.dataset, _recursive_=True)
     dataset_collection.process_data_multi()
     args.model.dim_outcomes = dataset_collection.train_f.data['outputs'].shape[-1]
@@ -60,7 +61,10 @@ def main(args: DictConfig):
 
     multimodel_trainer = Trainer(gpus=eval(str(args.exp.gpus)), logger=mlf_logger, max_epochs=args.exp.max_epochs,
                                  callbacks=multimodel_callbacks, #terminate_on_nan=True,
-                                 gradient_clip_val=args.model.multi.max_grad_norm)
+                                 gradient_clip_val=args.model.multi.max_grad_norm,
+                                    default_root_dir=HydraConfig.get().runtime.output_dir,
+                                    deterministic=True
+                                 )
     #multimodel_trainer.save_checkpoint("CT.ckpt")
     multimodel_trainer.fit(multimodel)
 

@@ -1,12 +1,13 @@
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import os
 import gc
 import torch
 
-from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollectionCausal
+from src.data.mimic_iii.causal_dataset import MIMIC3TFTDatasetCollectionCausal
+from src.data.mimic_iii.tft_dataset import MIMIC3TFTRealDataset
 from src.models.utils import set_seed
 from src.rdd.utils import from_fully_qualified_import
 
@@ -23,13 +24,13 @@ logger = logging.getLogger(__name__)
 
 def train_m0(
     args: DictConfig, 
-    dataset_collection: MIMIC3RealDatasetCollectionCausal,
+    dataset_collection: MIMIC3TFTDatasetCollectionCausal,
     splitted_directory: list[str],
     seed_idx: int
 ):
     set_seed(args.exp.seed)
 
-    model_kwargs = dict(args.model.params)
+    model_kwargs = OmegaConf.to_container(args.model.params, resolve=True)
     model_kwargs["treatment_module_class"] = from_fully_qualified_import(args.model.params.treatment_module_class)
 
     model_class = from_fully_qualified_import(args.model._target_)
@@ -54,7 +55,7 @@ def train_m0(
 
     train_loader_s1 = DataLoader(dataset_collection.train_f_multi_s1,shuffle=True,batch_size=args.dataset.batch_size)
     val_loader_s1 = DataLoader(dataset_collection.val_f_multi_s1, shuffle=False,batch_size=512)
-    model.training_theta = False
+    model.using_theta = False
     model.train()
     trainer.fit(model, train_loader_s1, val_loader_s1)
 
@@ -66,7 +67,7 @@ def train_m0(
 
 def train_theta(
     args: DictConfig, 
-    dataset_collection: MIMIC3RealDatasetCollectionCausal,
+    dataset_collection: MIMIC3TFTDatasetCollectionCausal,
     splitted_directory: list[str],
     seed_idx: int
 ):
@@ -82,11 +83,11 @@ def train_theta(
     m_e_model_path = os.path.join(args.model.destination_directory, f"m_e_{args.model.name}_{seed_idx}", "checkpoints")
     model = model_class.load_from_checkpoint(os.path.join(m_e_model_path, os.listdir(m_e_model_path)[0])).to("cuda")
 
-    for theta_param, theta_param_value in dict(args.model.theta_params).items():
+    theta_params_dict = OmegaConf.to_container(args.model.theta_params, resolve=True)
+    for theta_param, theta_param_value in dict(theta_params_dict).items():
         setattr(model, theta_param, theta_param_value)
         setattr(model.hparams, theta_param, theta_param_value)
-    model.training_theta = True
-    model.save_hyperparameters()
+    model.using_theta = True
 
     model.train()
     model.configure_optimizers()
@@ -127,8 +128,7 @@ def main(args: DictConfig):
     except MissingMandatoryValue:
         seed_idx = 0
 
-
-    dataset_collection = MIMIC3RealDatasetCollectionCausal(
+    dataset_collection = MIMIC3TFTDatasetCollectionCausal(
         args.dataset.path,
         min_seq_length=args.dataset.min_seq_length,
         max_seq_length=args.dataset.max_seq_length,
@@ -141,17 +141,18 @@ def main(args: DictConfig):
         vitals=args.dataset.vital_list,
         treatment_list=args.dataset.treatment_list,
         static_list=args.dataset.static_list,
+        dataset_class=MIMIC3TFTRealDataset,
         split_causal={"S1": 0.5}
     )
 
     dataset_collection.process_data_multi_val()
     dataset_collection.process_data_multi_train()
 
-    # logger.info("Training m0/e0")
-    # train_m0(args, dataset_collection, splitted_directory, seed_idx)
+    logger.info("Training m0/e0")
+    train_m0(args, dataset_collection, splitted_directory, seed_idx)
     logger.info("Training theta")
     train_theta(args, dataset_collection, splitted_directory, seed_idx)
-
+    gc.collect()
     
 
 if __name__=="__main__":

@@ -3,9 +3,11 @@ from typing import Any
 import numpy as np
 from tqdm.auto import tqdm
 import torch
-from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollection
+from src.data.mimic_iii.real_dataset import MIMIC3RealDatasetCollection, MIMIC3RealDataset
+from src.data.mimic_iii.tft_dataset import MIMIC3TFTRealDataset
 import logging
 import hydra
+from src.models.ct import CT
 from omegaconf import DictConfig, OmegaConf
 from src.evaluation.metrics import forecast_tft_values
 from torch.utils.data import DataLoader
@@ -121,10 +123,9 @@ def main(args: DictConfig):
     # fetch checkpoint paths
     models_dict_per_seed = format_models_dict(
         dataset_config=dict(args.dataset),
-        tft_models_prefix_pax=args.metrics.tft_models_prefix_path,
         device=device,
         seeds=seeds,
-        tft_models_definition=list(args.metrics.tft_models),
+        tft_models_definition=list(args.metrics.get("tft_models") or []),
         ct_models_path=args.metrics.ct_models_path
     )
 
@@ -140,7 +141,7 @@ def main(args: DictConfig):
     for seed, models_dict in models_dict_per_seed.items():
         seed_idx = seeds.index(seed)
 
-        dataset_collection = MIMIC3RealDatasetCollection(
+        tft_dataset_collection = MIMIC3RealDatasetCollection(
             args.dataset.path,
             min_seq_length=args.dataset.min_seq_length,
             max_seq_length=args.dataset.max_seq_length,
@@ -153,11 +154,28 @@ def main(args: DictConfig):
             vitals=args.dataset.vital_list,
             treatment_list=args.dataset.treatment_list,
             static_list=args.dataset.static_list,
+            dataset_class=MIMIC3TFTRealDataset
         )
-        dataset_collection.process_data_multi()
-        dataset = dataset_collection.test_f_multi
-        print("DATASET HORIZON ", dataset_collection.projection_horizon)
-        test_loader = DataLoader(dataset, batch_size=1024,shuffle=False)
+
+        ct_dataset_collection = MIMIC3RealDatasetCollection(
+            args.dataset.path,
+            min_seq_length=args.dataset.min_seq_length,
+            max_seq_length=args.dataset.max_seq_length,
+            seed=seed,
+            max_number=args.dataset.max_number,
+            split=args.dataset.split,
+            projection_horizon=args.dataset.projection_horizon,
+            autoregressive=args.dataset.autoregressive,
+            outcome_list=args.dataset.outcome_list,
+            vitals=args.dataset.vital_list,
+            treatment_list=args.dataset.treatment_list,
+            static_list=args.dataset.static_list,
+            dataset_class=MIMIC3RealDataset
+        )
+
+        tft_dataset_collection.process_data_multi()
+        ct_dataset_collection.process_data_multi()
+        
         
         # Forecast and compoute metrics
         for model_name, (model_class, model_path) in models_dict.items():
@@ -171,10 +189,13 @@ def main(args: DictConfig):
                 model_path=model_path, 
                 device=device
             )
-            y_pred, y_true = forecast_tft_values(model, test_loader, args.dataset.max_seq_length)
+            dataset_collection = ct_dataset_collection if isinstance(model, CT) else tft_dataset_collection
+            test_f = dataset_collection.test_f_multi
+            test_dl = DataLoader(test_f, batch_size=1024,shuffle=False)
+            y_pred, y_true = forecast_tft_values(model, test_dl, args.dataset.max_seq_length)
             
-            losses_rmse = (np.sqrt(np.mean((y_pred-y_true)**2,axis=0))*dataset_collection.test_f_multi.scaling_params['output_stds']).flatten()
-            losses_mae = (np.mean(np.abs(y_pred-y_true),axis=0)*dataset_collection.test_f_multi.scaling_params['output_stds']).flatten()
+            losses_rmse = (np.sqrt(np.mean((y_pred-y_true)**2,axis=0))*test_f.scaling_params['output_stds']).flatten()
+            losses_mae = (np.mean(np.abs(y_pred-y_true),axis=0)*test_f.scaling_params['output_stds']).flatten()
             for time_shift in range(args.metrics.max_projection_step):
                 metrics_per_time_per_seed[time_shift][seed][model_prefix] = {
                     "rmse": losses_rmse[time_shift],
@@ -186,7 +207,7 @@ def main(args: DictConfig):
         metrics_per_time_per_seed=metrics_per_time_per_seed,
         seeds=seeds,
         models_dict_per_seed=models_dict_per_seed,
-        tft_models_definition=list(args.metrics.tft_models),
+        tft_models_definition=list(args.metrics.get("tft_models") or []),
         add_ct_values=bool(args.metrics.ct_models_path)
     )
 

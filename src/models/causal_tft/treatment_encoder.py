@@ -25,12 +25,12 @@ class AbstractTreatmentModule(nn.Module, ABC):
         self.e0_head = create_sequential_layers(last_nn, hidden_size, 2 ** treatment_max_value)
 
         # This flag is used to know if we are training theta or m0/e0
-        self.training_theta = False
+        self.using_theta = False
 
     def forward(self, windows_batch: dict[str, Tensor], tau: Tensor):
 
         if self.training:
-            if self.training_theta:
+            if self.using_theta:
                 with torch.no_grad():
                     e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
                 theta = self.theta_head(self.theta_backbone.get_z(windows_batch, tau))
@@ -41,7 +41,7 @@ class AbstractTreatmentModule(nn.Module, ABC):
         else:
             with torch.no_grad():
                 e0 = self.encode_e0_values(self.e0_head(self.e0_backbone.get_z(windows_batch, tau)))
-                if self.training_theta:
+                if self.using_theta:
                     theta = self.theta_head(self.theta_backbone.get_z(windows_batch, tau))
                 else:
                     theta = torch.ones_like(e0)
@@ -83,7 +83,7 @@ class OneHotTreatmentModule(AbstractTreatmentModule):
         return encoded_treatments
 
     def encode_e0_values(self, e0: Tensor) -> Tensor:
-        if not self.training_theta:
+        if not self.using_theta:
             return e0
         else:
             return self.e0_norm_function(e0)

@@ -1,5 +1,6 @@
 from copy import deepcopy
-from src.data.mimic_iii.real_dataset import MIMIC3RealDataset, RealDatasetCollection
+from src.data.mimic_iii.real_dataset import RealDatasetCollection
+from src.data.mimic_iii.tft_dataset import MIMIC3TFTRealDataset
 from src.rdd.rdd import compute_subject_id_swicthing_time_steps_mapping, rdd_indexes_iterator
 import numpy as np
 
@@ -7,7 +8,7 @@ from src import ROOT_PATH
 from sklearn.model_selection import train_test_split
 from src.data.mimic_iii.load_data import load_mimic3_data_processed
 
-class MIMIC3RDDRealDataset(MIMIC3RealDataset):
+class MIMIC3RDDRealDataset(MIMIC3TFTRealDataset):
 
     def __init__(self, treatments, outcomes, vitals, static_features, outcomes_unscaled, scaling_params, subset_name):
         # keep raw treatments to use it for RDD switching time steps extraction
@@ -144,16 +145,18 @@ class MIMIC3RDDRealDatasetCollection(RealDatasetCollection):
     """
     Dataset collection (train_f, val_f, test_f)
     """
-    def __init__(self,
-                 path: str,
-                 min_seq_length: int = 30,
-                 max_seq_length: int = 60,
-                 seed: int = 100,
-                 max_number: int = None,
-                 split: dict = {'val': 0.2, 'test': 0.2},
-                 projection_horizon: int = 5,
-                 autoregressive=True,
-                 **kwargs):
+    def __init__(
+        self,
+        path: str,
+        min_seq_length: int = 30,
+        max_seq_length: int = 60,
+        seed: int = 100,
+        max_number: int = None,
+        split: dict = {'val': 0.2, 'test': 0.2},
+        projection_horizon: int = 5,
+        autoregressive=True,
+        **kwargs
+    ):
         """
         Args:
             path: Path with MIMIC-3 dataset (HDFStore)

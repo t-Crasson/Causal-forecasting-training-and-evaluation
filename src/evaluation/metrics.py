@@ -7,22 +7,21 @@ from src.models.ct import CT
 
 
 def forecast_tft_values(model: TFTBaseline, dataloader: DataLoader, max_seq_length: int):
-    if hasattr(model, "proj_len"): # TODO: remove this part
-        projection_length = model.proj_len  
-    elif hasattr(model, "projection_length"):
-        projection_length = model.projection_length  
-    else:
-        projection_length = model.projection_horizon
+
+    projection_length = model.projection_horizon if isinstance(model, CT) else model.projection_length      
     # format y_true values
     y_true = np.zeros((len(dataloader.dataset), projection_length, 1))
     for i, tau in enumerate(dataloader.dataset.data["future_past_split"]):
         tau = int(tau)
-        if not isinstance(model, CT):
+        if isinstance(model, CT):
             y_true[i] = dataloader.dataset.data["outputs"][i,tau-1:tau+projection_length-1]
         else:
             y_true[i] = torch.tensor(dataloader.dataset.data["outputs"][i, tau:tau+projection_length])
     
-    if not isinstance(model, CT):
+    if isinstance(model, CT):
+        print("DEVICE ", model.device)
+        predictions = model.get_autoregressive_predictions(dataloader.dataset)
+    else:
         # compute predictions from model
         predictions = []
         for batch in tqdm(dataloader):
@@ -46,8 +45,5 @@ def forecast_tft_values(model: TFTBaseline, dataloader: DataLoader, max_seq_leng
             predicted_outputs = torch.stack(predicted_outputs)
             predictions.append(predicted_outputs)
         predictions = torch.concat(predictions).numpy()
-    else:
-        print(f"HORIZON {model.hparams.dataset.projection_horizon}")
-        predictions = model.get_autoregressive_predictions(dataloader.dataset)
 
     return predictions, y_true

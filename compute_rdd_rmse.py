@@ -2,7 +2,6 @@
 from typing import Any
 import pandas as pd
 import numpy as np
-from tqdm.auto import tqdm
 import torch
 from sklearn.metrics import root_mean_squared_error, mean_absolute_error
 import joblib
@@ -206,10 +205,9 @@ def main(args: DictConfig):
     # Fetch checkpoint paths
     models_dict_per_seed = format_models_dict(
         dataset_config=dict(args.dataset),
-        tft_models_prefix_pax=args.metrics.tft_models_prefix_path,
         device=device,
         seeds=seeds,
-        tft_models_definition=list(args.metrics.tft_models),
+        tft_models_definition=list(args.metrics.get("tft_models") or []),
         ct_models_path=args.metrics.ct_models_path
     )
 
@@ -246,13 +244,13 @@ def main(args: DictConfig):
         rdd_query_str=args.metrics.rdd.rdd_query_str,
         top_percent_outliers_selection=args.metrics.rdd.top_percent_outliers_selection,
         models_dict_per_seed=models_dict_per_seed,
-        tft_models_definition=list(args.metrics.tft_models),
+        tft_models_definition=list(args.metrics.get("tft_models") or []),
         compute_ct_values=bool(args.metrics.ct_models_path)
     )
     
     # compute metrics per with filtered
     save_metrics(
-        destination_file_path=args.metrics.forecast.destination_file_path, 
+        destination_file_path=args.metrics.rdd.destination_file_path, 
         metrics_dict=metrics_dict,
         logger=logger
     )

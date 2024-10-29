@@ -9,11 +9,12 @@ pandas>=1.3.0
 seaborn
 matplotlib
 scipy
-pytorch-lightning==2.4.0
-torchmetrics==1.5.1
-encodec==0.1.1
-hydra-core==1.3.2
+pytorch-lightning
+torchmetrics
+encodec
+hydra-core
 hydra_colorlog
+mlflow
 scikit-learn
 tables
 ray[tune]

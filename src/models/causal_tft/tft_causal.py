@@ -77,12 +77,12 @@ class CausalTFT(TFTBaseline, Generic[T]):
         self.save_hyperparameters()
 
     @property
-    def training_theta(self) -> bool:
-        return self.treatment_module.training_theta
+    def using_theta(self) -> bool:
+        return self.treatment_module.using_theta
 
-    @training_theta.setter
-    def training_theta(self, value: bool):
-        self.treatment_module.training_theta = value
+    @using_theta.setter
+    def using_theta(self, value: bool):
+        self.treatment_module.using_theta = value
 
     def train(self, mode: bool = True):
         super().train(mode)
@@ -96,7 +96,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
 
     def forward(self, windows_batch: dict[str, Tensor], tau: Tensor | None = None):
 
-        if self.training and not self.training_theta:
+        if self.training and not self.using_theta:
             m0 = self.m0_head(self.get_z(windows_batch, tau))
         else:
             with torch.no_grad():
@@ -108,7 +108,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
     def format_batch_window(self, batch: dict[str, Tensor]) -> tuple[dict[str, Tensor], Tensor, Tensor, Tensor, Tensor]:
         windows_batch, taus, y, active_entries, _ = super().format_batch_window(batch)
         # Setting the treatment tensor and removing the treatments from the temporal features
-        temporal = windows_batch["multivariate_exog"] # TODO heck same thing on GPU and see results
+        temporal = windows_batch["multivariate_exog"]
         treatments = torch.zeros_like(y)
         for k in range(self.treatment_module.treatment_max_value):
             treatments += temporal[:,:,-1-k].clone().unsqueeze(-1)*(2**k)
@@ -166,7 +166,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         self.log("train_loss_e_0", loss_e0, on_epoch=True, sync_dist=True)
         self.log("train_orthogonal_loss", loss_orthogonal, on_epoch=True, sync_dist=True)
 
-        if self.training_theta:
+        if self.using_theta:
             loss = loss_orthogonal
         else:
             loss = loss_reg + loss_e0
@@ -183,7 +183,7 @@ class CausalTFT(TFTBaseline, Generic[T]):
         self.log("val_loss_e_0", loss_e0, on_epoch=True, sync_dist=True)
         self.log("val_orthogonal_loss", loss_orthogonal, on_epoch=True, sync_dist=True)
         # If we train m_0 and e_0 we compute the loss by taking their losses
-        if self.training_theta:
+        if self.using_theta:
             loss = loss_orthogonal
         else:
             loss = loss_reg + loss_e0
